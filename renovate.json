@@ -6,7 +6,18 @@
   "baseBranchPatterns": [
     "dev"
   ],
+  "ignoreDeps": [
+    "int:BUILD_LEVEL",
+    "boolean:INTERNET_ACCESS_ENABLED"
+  ],
   "packageRules": [
+    {
+      "description": "Disable all Miuix dependency updates",
+      "matchPackageNames": [
+        "/^top\\.yukonga\\.miuix\\.kmp:/"
+      ],
+      "enabled": false
+    },
     {
       "matchUpdateTypes": [
         "minor",

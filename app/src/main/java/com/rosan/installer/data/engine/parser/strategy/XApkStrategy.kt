@@ -3,24 +3,30 @@
 package com.rosan.installer.data.engine.parser.strategy
 
 import android.graphics.drawable.Drawable
+import com.rosan.installer.data.engine.parser.ApkParser
 import com.rosan.installer.data.engine.parser.FlexibleXapkVersionCodeSerializer
 import com.rosan.installer.data.engine.parser.parseSplitMetadata
+import com.rosan.installer.data.engine.signature.PendingApkSignatureAnalyzer
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.io.File
 import java.util.zip.ZipFile
 
-object XApkStrategy : AnalysisStrategy, KoinComponent {
-    private val json by inject<Json>()
+class XApkStrategy(
+    private val json: Json,
+    // Inject ApkParser to handle fallback analysis for Base APK
+    private val apkParser: ApkParser,
+    private val pendingApkSignatureAnalyzer: PendingApkSignatureAnalyzer
+) : AnalysisStrategy {
 
     @OptIn(ExperimentalSerializationApi::class)
     override suspend fun analyze(
@@ -34,7 +40,9 @@ object XApkStrategy : AnalysisStrategy, KoinComponent {
 
         // 1. Parse Manifest
         val manifestEntry = zipFile.getEntry("manifest.json") ?: return emptyList()
-        val manifest = zipFile.getInputStream(manifestEntry).use {
+        val manifest = withContext(Dispatchers.IO) {
+            zipFile.getInputStream(manifestEntry)
+        }.use {
             json.decodeFromStream<Manifest>(it)
         }
 
@@ -67,20 +75,53 @@ object XApkStrategy : AnalysisStrategy, KoinComponent {
                             sourceType = extra.dataType,
                             type = metadata.type,
                             filterType = metadata.filterType,
-                            configValue = metadata.configValue
+                            configValue = metadata.configValue,
+                            signatureInfo = if (extra.checkAppSignature) {
+                                pendingApkSignatureAnalyzer.analyze(entryData, extra.cacheDirectory)
+                            } else {
+                                null
+                            }
                         )
                     } else {
+                        // Handle Base APK
+                        var resolvedLabel = manifest.label
+                        var resolvedIcon = icon
+                        val signatureInfo = if (extra.checkAppSignature) {
+                            pendingApkSignatureAnalyzer.analyze(entryData, extra.cacheDirectory)
+                        } else {
+                            null
+                        }
+
+                        // Fallback: If label is missing from JSON, parse the Base APK fully to extract it
+                        if (resolvedLabel.isNullOrBlank()) {
+                            val baseEntry = zipFile.getEntry(entryName)
+                            if (baseEntry != null) {
+                                val parsedEntities = apkParser.parseZipEntryFull(zipFile, baseEntry, data, extra)
+                                val parsedBase = parsedEntities.firstOrNull { it is AppEntity.BaseEntity } as? AppEntity.BaseEntity
+
+                                if (parsedBase != null) {
+                                    resolvedLabel = parsedBase.label
+                                    // Optionally fallback the icon as well if missing from zip root
+                                    if (resolvedIcon == null) {
+                                        resolvedIcon = parsedBase.icon
+                                    }
+                                }
+                            }
+                        }
+
                         AppEntity.BaseEntity(
                             packageName = manifest.packageName,
                             sharedUserId = null,
                             data = entryData,
                             versionCode = manifest.versionCode,
                             versionName = manifest.versionName,
-                            label = manifest.label,
-                            icon = icon,
+                            label = resolvedLabel,
+                            icon = resolvedIcon,
                             targetSdk = manifest.targetSdk,
                             minSdk = manifest.minSdk,
-                            sourceType = extra.dataType
+                            sourceType = extra.dataType,
+                            signatureHash = signatureInfo?.primarySha256,
+                            signatureInfo = signatureInfo
                         )
                     }
                     listOf(entity)
@@ -111,8 +152,10 @@ object XApkStrategy : AnalysisStrategy, KoinComponent {
     private data class Manifest(
         @SerialName("package_name") val packageName: String,
         @SerialName("version_code") @Serializable(with = FlexibleXapkVersionCodeSerializer::class) val versionCodeStr: String,
-        @SerialName("version_name") val versionNameStr: String?,
-        @SerialName("name") val label: String?,
+        // Assign default value null to prevent MissingFieldException when the key is missing in JSON
+        @SerialName("version_name") val versionNameStr: String? = null,
+        // Assign default value null to fix the crash
+        @SerialName("name") val label: String? = null,
         @SerialName("split_apks") val splits: List<Split>,
         @SerialName("min_sdk_version") val minSdk: String? = null,
         @SerialName("target_sdk_version") val targetSdk: String? = null,

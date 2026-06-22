@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog.inner
 
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +33,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rosan.installer.R
+import com.rosan.installer.domain.settings.model.preferences.RootMode
 import com.rosan.installer.ui.util.KeyEventBlocker
 
 /**
@@ -39,9 +42,11 @@ import com.rosan.installer.ui.util.KeyEventBlocker
  */
 @Composable
 fun ModuleInstallSheetContent(
+    rootMode: RootMode,
     outputLines: List<String>,
     isFinished: Boolean,
     onReboot: () -> Unit,
+    onSoftReboot: () -> Unit,
     onClose: () -> Unit,
     colorScheme: ColorScheme
 ) {
@@ -51,9 +56,13 @@ fun ModuleInstallSheetContent(
     val lazyListState = rememberLazyListState()
 
     // Auto-scroll to the bottom when new lines are added, provided it's not finished yet
-    LaunchedEffect(outputLines.size) {
-        if (!isFinished && outputLines.isNotEmpty()) {
-            lazyListState.animateScrollToItem(index = outputLines.size - 1)
+    LaunchedEffect(outputLines.size, isFinished) {
+        if (outputLines.isNotEmpty()) {
+            if (!isFinished) {
+                lazyListState.animateScrollToItem(index = outputLines.size - 1)
+            } else {
+                lazyListState.scrollToItem(index = outputLines.size - 1)
+            }
         }
     }
 
@@ -77,7 +86,10 @@ fun ModuleInstallSheetContent(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 300.dp, max = 500.dp),
+                // Use weight to fill available remaining space without pushing bottom elements out of screen.
+                // fill = false allows it to be smaller than the available space if log content is short.
+                .weight(1f, fill = false)
+                .heightIn(min = 300.dp), // Removed max = 500.dp so weight can fully dictate upper limits
             colors = CardDefaults.cardColors(
                 containerColor = colorScheme.surfaceContainerHigh
             ),
@@ -111,6 +123,13 @@ fun ModuleInstallSheetContent(
                 ) {
                     Text(stringResource(R.string.reboot))
                 }
+                /*if (rootMode == RootMode.KernelSU)
+                    Button(
+                        onClick = onSoftReboot,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.reboot_soft_reboot))
+                    }*/
                 Button(
                     onClick = onClose,
                     modifier = Modifier.fillMaxWidth()

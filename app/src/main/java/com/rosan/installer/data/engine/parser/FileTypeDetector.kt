@@ -3,25 +3,24 @@
 package com.rosan.installer.data.engine.parser
 
 import android.os.Build
-import com.rosan.installer.domain.engine.exception.AnalyseFailedCorruptedArchiveException
+import com.rosan.installer.domain.engine.exception.AnalyseException
+import com.rosan.installer.domain.engine.model.error.AnalyseErrorType
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.engine.model.DataType
-import com.rosan.installer.util.ArchiveUtils
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.engine.model.source.DataType
+import com.rosan.installer.util.isZipArchive
 import dalvik.system.ZipPathValidator
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import timber.log.Timber
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipFile
 
-object FileTypeDetector : KoinComponent {
-
-    private val json: Json by inject()
+class FileTypeDetector(
+    private val json: Json
+) {
 
     init {
         disableZipPathValidation()
@@ -29,7 +28,7 @@ object FileTypeDetector : KoinComponent {
 
     private fun disableZipPathValidation() {
         // ZipPathValidator was introduced in Android 14 (API 34)
-        if (Build.VERSION.SDK_INT >= 34) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 ZipPathValidator.clearCallback()
                 Timber.d("ZipPathValidator callback cleared for safe in-memory analysis.")
@@ -41,7 +40,7 @@ object FileTypeDetector : KoinComponent {
 
     fun detect(data: DataEntity, extra: AnalyseExtraEntity): DataType {
         val fileEntity = data as? DataEntity.FileEntity ?: return DataType.NONE
-        val isZip = ArchiveUtils.isZipArchive(File(fileEntity.path))
+        val isZip = File(fileEntity.path).isZipArchive()
 
         return try {
             ZipFile(fileEntity.path).use { zip ->
@@ -62,7 +61,11 @@ object FileTypeDetector : KoinComponent {
                     // The file contains the ZIP magic number but failed to open.
                     // This typically means the file is truncated or corrupted.
                     Timber.e(e, "Archive is corrupted or truncated: ${fileEntity.path}")
-                    throw AnalyseFailedCorruptedArchiveException("Archive is corrupted or truncated", e)
+                    throw AnalyseException(
+                        errorType = AnalyseErrorType.CORRUPTED_ARCHIVE,
+                        message = "Archive is corrupted or truncated",
+                        cause = e
+                    )
                 } else {
                     // The file does not have the ZIP magic number, so it is not a ZIP file at all.
                     handleNonZipFallback(fileEntity, e)

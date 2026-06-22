@@ -30,8 +30,7 @@ jobs:
     # 依赖检查
     needs: pre_job
     # 如果是定时任务(schedule)直接跑，或者 skip 检查说不跳过才跑
-    if: false
-    # if: github.event_name == 'schedule' || needs.pre_job.outputs.should_skip != 'true'
+    if: github.event_name == 'schedule' || needs.pre_job.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -46,7 +45,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up JDK 25
         uses: actions/setup-java@v5
@@ -59,10 +61,13 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
-      # 新增：Gradle 设置与缓存管理
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
+          # Accept the terms of use to suppress the caching licensing warning
+          build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
+          build-scan-terms-of-use-agree: "yes"
+          build-scan-publish: false
           # CodeQL 分析只读缓存
           cache-read-only: true
 

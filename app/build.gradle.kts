@@ -1,31 +1,19 @@
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
+import com.mikepenz.aboutlibraries.plugin.DuplicateMode
+import com.mikepenz.aboutlibraries.plugin.DuplicateRule
 import java.util.Properties
 
-// Get git commit hash safely, compatible with configuration cache
-val gitHash: String = try {
-    providers.exec {
-        commandLine("git", "rev-parse", "--short", "HEAD")
-    }.standardOutput.asText.get().trim()
-} catch (e: Exception) {
-    "unknown"
-}
-
-val manualVersionName = project.findProperty("VERSION_NAME") as String?
-val dynamicVersionName = LocalDate.now().format(DateTimeFormatter.ofPattern("yy.MM"))
-val baseVersionName = manualVersionName ?: dynamicVersionName
-
 plugins {
-    alias(libs.plugins.agp.app)
+    alias(libs.plugins.installerx.application)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.aboutLibraries)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
-    compileSdk = 36
+    namespace = "com.rosan.installer"
 
     val properties = Properties()
     val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -37,35 +25,21 @@ android {
         }
     }
     val storeFile = properties.getProperty("storeFile") ?: System.getenv("KEYSTORE_FILE")
-    val storePassword =
-        properties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
+    val storePassword = properties.getProperty("storePassword") ?: System.getenv("KEYSTORE_PASSWORD")
     val keyAlias = properties.getProperty("keyAlias") ?: System.getenv("KEY_ALIAS")
     val keyPassword = properties.getProperty("keyPassword") ?: System.getenv("KEY_PASSWORD")
-    val hasCustomSigning =
-        storeFile != null && storePassword != null && keyAlias != null && keyPassword != null
+    val hasCustomSigning = storeFile != null && storePassword != null && keyAlias != null && keyPassword != null
 
     defaultConfig {
-        // 你如果根据InstallerX的源码进行打包成apk或其他安装包格式
-        // 请换一个applicationId，不要和官方的任何发布版本产生冲突。
         // If you use InstallerX source code, package it into apk or other installation package format
         // Please change the applicationId to one that does not conflict with any official release.
-        applicationId = project.findProperty("APP_ID") as String?
-            ?: "com.rosan.installer.x.revived"
-        namespace = "com.rosan.installer"
-        minSdk = 26
-        targetSdk = 36
-        // Version control:
-        // - versionName is auto-generated as "yy.MM" by default,
-        //   or manually set via the VERSION_NAME Gradle property.
-        // - Unstable and Preview builds automatically append the git commit hash
-        //   (e.g., "25.07.abc1234"), configured in productFlavors.
-        // - Stable builds use the base versionName as-is (e.g., "25.07").
-        // - versionCode must be incremented manually before each Stable release.
-        versionCode = 46
-        versionName = baseVersionName
+        applicationId = project.findProperty("APP_ID") as String? ?: "com.rosan.installer.x.revived"
+
+        // Version control retrieved from git, with a build-plugin fallback when git is unavailable.
+        versionCode = project.getGitCommitCount()
+        versionName = project.getBaseVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
     }
 
     signingConfigs {
@@ -85,37 +59,47 @@ android {
 
     buildTypes {
         getByName("debug") {
-            signingConfig =
-                if (hasCustomSigning) {
-                    println("Applying custom signing to debug build.")
-                    signingConfigs.getByName("releaseCustom")
-                } else {
-                    println("No custom signing info. Debug build will use the default debug keystore.")
-                    signingConfigs.getByName("debug")
-                }
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            signingConfig = if (hasCustomSigning) {
+                println("Applying custom signing to debug build.")
+                signingConfigs.getByName("releaseCustom")
+            } else {
+                println("No custom signing info. Debug build will use the default debug keystore.")
+                signingConfigs.getByName("debug")
+            }
+            optimization.enable = false
+        }
+        getByName("release") {
+            signingConfig = if (hasCustomSigning) {
+                println("Applying custom signing to release build.")
+                signingConfigs.getByName("releaseCustom")
+            } else {
+                println("No custom signing info. Release build will use the default debug keystore.")
+                signingConfigs.getByName("debug")
+            }
+            vcsInfo.include = false
+            optimization.enable = true
+        }
+        create("nonMinifiedRelease") {
+            signingConfig = if (hasCustomSigning) {
+                signingConfigs.getByName("releaseCustom")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
 
-        getByName("release") {
-            signingConfig =
-                if (hasCustomSigning) {
-                    println("Applying custom signing to release build.")
-                    signingConfigs.getByName("releaseCustom")
-                } else {
-                    println("No custom signing info. Debug build will use the default debug keystore.")
-                    signingConfigs.getByName("debug")
-                }
-            isShrinkResources = true
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+        create("benchmarkRelease") {
+            isDebuggable = true
+            signingConfig = if (hasCustomSigning) {
+                signingConfigs.getByName("releaseCustom")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     flavorDimensions.addAll(listOf("connectivity", "level"))
@@ -135,13 +119,13 @@ android {
         create("Unstable") {
             dimension = "level"
             isDefault = true
-            versionNameSuffix = ".$gitHash"
+            versionNameSuffix = ".${project.getGitHash()}"
             buildConfigField("int", "BUILD_LEVEL", "0")
         }
 
         create("Preview") {
             dimension = "level"
-            versionNameSuffix = ".$gitHash"
+            versionNameSuffix = ".${project.getGitHash()}"
             buildConfigField("int", "BUILD_LEVEL", "1")
         }
 
@@ -151,11 +135,6 @@ android {
         }
     }
 
-    compileOptions {
-        targetCompatibility = JavaVersion.VERSION_25
-        sourceCompatibility = JavaVersion.VERSION_25
-    }
-
     buildFeatures {
         buildConfig = true
         compose = true
@@ -163,44 +142,62 @@ android {
     }
 
     packaging {
-        resources {
-            excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+        jniLibs {
+            // Module-specific exclusions
+            excludes += setOf(
+                "lib/*/libandroidx.graphics.path.so",
+                "lib/*/libdatastore_shared_counter.so"
+            )
         }
+    }
+
+    androidResources {
+        generateLocaleConfig = true
     }
 }
 
-kotlin {
-    jvmToolchain(25)
+configurations.all {
+    exclude(group = "androidx.navigationevent", module = "navigationevent-compose")
 }
 
 aboutLibraries {
     library {
         // Enable the duplication mode, allows to merge, or link dependencies which relate
-        duplicationMode = com.mikepenz.aboutlibraries.plugin.DuplicateMode.MERGE
+        duplicationMode = DuplicateMode.MERGE
         // Configure the duplication rule, to match "duplicates" with
-        duplicationRule = com.mikepenz.aboutlibraries.plugin.DuplicateRule.SIMPLE
+        duplicationRule = DuplicateRule.SIMPLE
     }
 }
 
-room {
+room3 {
     // Specify the schema directory
     schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
+    implementation(libs.androidx.profileinstaller)
+    implementation(libs.android.tools.apksig)
+    "baselineProfile"(project(":baselineprofile"))
     compileOnly(project(":hidden-api"))
     implementation(libs.androidx.core)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.lifecycle)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androix.splashscreen)
+    implementation(libs.androidx.splashscreen)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
-    implementation(libs.compose.navigation)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+    implementation(libs.androidx.navigation3.runtime)
+    // implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.navigationevent) {
+        exclude(group = "androidx.navigation", module = "navigationevent-compose")
+    }
+
     implementation(libs.compose.materialIcons)
     // Preview support only for debug builds
     debugImplementation(libs.compose.ui.tooling)
@@ -208,8 +205,6 @@ dependencies {
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
-    implementation(libs.room.ktx)
-    // implementation(libs.work.runtime.ktx)
 
     implementation(libs.ktx.serializationJson)
 
@@ -221,8 +216,6 @@ dependencies {
     implementation(libs.koin.compose)
     implementation(libs.koin.compose.viewmodel)
 
-    implementation(libs.accompanist.drawablepainter)
-
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
 
@@ -230,7 +223,7 @@ dependencies {
 
     implementation(libs.iamr0s.dhizuku.api)
 
-    implementation(libs.iamr0s.androidAppProcess)
+    implementation(project(":app-process"))
 
     // aboutlibraries
     implementation(libs.aboutlibraries.core)
@@ -240,14 +233,16 @@ dependencies {
     implementation(libs.timber)
 
     // miuix
-    implementation(libs.miuix)
+    implementation(libs.miuix.core)
+    implementation(libs.miuix.ui)
+    implementation(libs.miuix.shader)
+    implementation(libs.miuix.blur)
+    implementation(libs.miuix.preference)
     implementation(libs.miuix.icons)
-    implementation(libs.capsule)
-    // haze
-    implementation(libs.haze)
-    implementation(libs.haze.materials)
+    implementation(libs.miuix.navigation)
 
     // okhttp
+    implementation(platform(libs.okhttp.bom))
     implementation(libs.okhttp)
 
     // monetcompat

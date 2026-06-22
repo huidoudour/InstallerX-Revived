@@ -3,10 +3,13 @@
 package com.rosan.installer.data.settings.mapper
 
 import com.rosan.installer.data.settings.local.room.entity.ConfigEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.data.settings.local.room.entity.ConfigWithScopeCount
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 
-// Map Room database entity to pure business domain model
-fun ConfigEntity.toDomainModel(): ConfigModel {
+/**
+ * Map Room database entity to pure business domain model
+ */
+fun ConfigEntity.toDomainModel(scopeCount: Int = 0): ConfigModel {
     val model = ConfigModel(
         id = this.id,
         name = this.name,
@@ -14,11 +17,15 @@ fun ConfigEntity.toDomainModel(): ConfigModel {
         authorizer = this.authorizer,
         customizeAuthorizer = this.customizeAuthorizer,
         installMode = this.installMode,
+        autoApproveSession = this.autoApproveSession,
+        toastMode = this.toastMode,
         enableCustomizeInstallReason = this.enableCustomizeInstallReason,
         installReason = this.installReason,
         enableCustomizePackageSource = this.enableCustomizePackageSource,
         packageSource = this.packageSource,
+        installRequesterMode = this.installRequesterMode,
         installRequester = this.installRequester,
+        installerMode = this.installerMode,
         installer = this.installer,
         enableCustomizeUser = this.enableCustomizeUser,
         targetUserId = this.targetUserId,
@@ -34,20 +41,30 @@ fun ConfigEntity.toDomainModel(): ConfigModel {
         allowDowngrade = this.allowDowngrade,
         bypassLowTargetSdk = this.bypassLowTargetSdk,
         allowAllRequestedPermissions = this.allowAllRequestedPermissions,
+        allowSigMismatch = this.allowSigMismatch,
+        allowSigUnknown = this.allowSigUnknown,
+        requestUpdateOwnership = this.requestUpdateOwnership,
         splitChooseAll = this.splitChooseAll,
         apkChooseAll = this.apkChooseAll,
+        requireBiometricAuth = this.requireBiometricAuth,
         createdAt = this.createdAt,
-        modifiedAt = this.modifiedAt
+        modifiedAt = this.modifiedAt,
+        scopeCount = scopeCount,
+        // Pass runtime flags directly into the constructor
+        installFlags = this.installFlags,
+        bypassBlacklistInstallSetByUser = this.bypassBlacklistInstallSetByUser,
+        bypassProfileRestriction = this.bypassProfileRestriction,
+        uninstallFlags = this.uninstallFlags,
+        callingFromUid = this.callingFromUid
     )
-
-    // Transfer runtime flags
-    model.installFlags = this.installFlags
-    model.bypassBlacklistInstallSetByUser = this.bypassBlacklistInstallSetByUser
-    model.uninstallFlags = this.uninstallFlags
-    model.callingFromUid = this.callingFromUid
 
     return model
 }
+
+/**
+ * Map the joined query result (Config + Scope Count) to the business domain model.
+ */
+fun ConfigWithScopeCount.toDomainModel() = this.config.toDomainModel(scopeCount = this.scopeCount)
 
 // Map business domain model back to Room database entity
 fun ConfigModel.toEntity(): ConfigEntity {
@@ -58,11 +75,15 @@ fun ConfigModel.toEntity(): ConfigEntity {
         authorizer = this.authorizer,
         customizeAuthorizer = this.customizeAuthorizer,
         installMode = this.installMode,
+        autoApproveSession = this.autoApproveSession,
+        toastMode = this.toastMode,
         enableCustomizeInstallReason = this.enableCustomizeInstallReason,
         installReason = this.installReason,
         enableCustomizePackageSource = this.enableCustomizePackageSource,
         packageSource = this.packageSource,
+        installRequesterMode = this.installRequesterMode,
         installRequester = this.installRequester,
+        installerMode = this.installerMode,
         installer = this.installer,
         enableCustomizeUser = this.enableCustomizeUser,
         targetUserId = this.targetUserId,
@@ -78,8 +99,12 @@ fun ConfigModel.toEntity(): ConfigEntity {
         allowDowngrade = this.allowDowngrade,
         bypassLowTargetSdk = this.bypassLowTargetSdk,
         allowAllRequestedPermissions = this.allowAllRequestedPermissions,
+        allowSigMismatch = this.allowSigMismatch,
+        allowSigUnknown = this.allowSigUnknown,
+        requestUpdateOwnership = this.requestUpdateOwnership,
         splitChooseAll = this.splitChooseAll,
         apkChooseAll = this.apkChooseAll,
+        requireBiometricAuth = this.requireBiometricAuth,
         createdAt = this.createdAt,
         modifiedAt = this.modifiedAt
     )
@@ -87,6 +112,7 @@ fun ConfigModel.toEntity(): ConfigEntity {
     // Transfer runtime flags
     entity.installFlags = this.installFlags
     entity.bypassBlacklistInstallSetByUser = this.bypassBlacklistInstallSetByUser
+    entity.bypassProfileRestriction = this.bypassProfileRestriction
     entity.uninstallFlags = this.uninstallFlags
     entity.callingFromUid = this.callingFromUid
 

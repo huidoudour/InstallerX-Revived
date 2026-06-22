@@ -1,88 +1,95 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.settings.config.edit
 
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
+import com.rosan.installer.domain.settings.model.config.BiometricAuthMode
+import com.rosan.installer.ui.navigation.LocalNavigator
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewAction
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewEvent
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewModel
 import com.rosan.installer.ui.page.miuix.widgets.MiuixBackButton
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataAllowAllRequestedPermissionsWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataAllowDowngradeWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataAllowTestOnlyWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataApkChooseAllWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataAuthorizerWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataAutoDeleteWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataBypassLowTargetSdkWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataCustomizeAuthorizerWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataDeclareInstallerWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataDescriptionWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataForAllUserWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataInstallModeWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataInstallRequesterWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataManualDexoptWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataNameWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataPackageSourceWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataSplitChooseAllWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDataUserWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDisplaySdkWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixDisplaySizeWidget
-import com.rosan.installer.ui.page.miuix.widgets.MiuixInstallReasonWidget
 import com.rosan.installer.ui.page.miuix.widgets.MiuixSettingsTipCard
 import com.rosan.installer.ui.page.miuix.widgets.MiuixUnsavedChangesDialog
 import com.rosan.installer.ui.theme.getMiuixAppBarColor
-import com.rosan.installer.ui.theme.installerHazeEffect
-import com.rosan.installer.ui.theme.rememberMiuixHazeStyle
+import com.rosan.installer.ui.theme.installerMiuixBlurEffect
+import com.rosan.installer.ui.theme.rememberMiuixBlurBackdrop
 import com.rosan.installer.ui.util.isNoneActive
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Ok
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
 fun MiuixEditPage(
-    navController: NavController,
     id: Long? = null,
     viewModel: EditViewModel = koinViewModel { parametersOf(id) },
     useBlur: Boolean
 ) {
+    val navigator = LocalNavigator.current
+    val context = LocalContext.current
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val dispatch = viewModel::dispatch
+
     val snackBarHostState = remember { SnackbarHostState() }
     val scrollBehavior = MiuixScrollBehavior()
-    val hazeState = if (useBlur) remember { HazeState() } else null
-    val hazeStyle = rememberMiuixHazeStyle()
     val showUnsavedDialogState = remember { mutableStateOf(false) }
+    val showAutoApproveSessionDialogState = remember { mutableStateOf(false) }
 
     MiuixUnsavedChangesDialog(
         showState = showUnsavedDialogState,
@@ -91,57 +98,109 @@ fun MiuixEditPage(
         },
         onConfirm = {
             showUnsavedDialogState.value = false
-            navController.navigateUp()
+            navigator.pop()
         },
-        errorMessages = viewModel.activeErrorMessages
+        errorMessages = state.activeErrorResIds.map { stringResource(it) }
     )
-    // The condition for interception is now expanded to include errors.
-    // If there are unsaved changes OR if there are validation errors, we should intercept.
-    val shouldInterceptBackPress = viewModel.hasUnsavedChanges || viewModel.hasErrors
+
+    WindowDialog(
+        show = showAutoApproveSessionDialogState.value,
+        onDismissRequest = {
+            showAutoApproveSessionDialogState.value = false
+        },
+        title = stringResource(R.string.warning),
+        content = {
+            Column {
+                Text(
+                    text = stringResource(R.string.config_auto_approve_session_warning),
+                    color = MiuixTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            showAutoApproveSessionDialogState.value = false
+                        },
+                        text = stringResource(R.string.cancel)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            showAutoApproveSessionDialogState.value = false
+                            dispatch(EditViewAction.ChangeDataAutoApproveSession(true))
+                        },
+                        text = stringResource(R.string.confirm),
+                        colors = ButtonDefaults.textButtonColorsPrimary()
+                    )
+                }
+            }
+        }
+    )
+
+    val shouldInterceptBackPress = state.hasUnsavedChanges || state.hasErrors
 
     BackHandler(enabled = shouldInterceptBackPress) {
         showUnsavedDialogState.value = true
     }
 
-    val stateAuthorizer = viewModel.state.data.authorizer
-    val globalAuthorizer = viewModel.globalAuthorizer
+    val stateAuthorizer = state.data.authorizer
+    val globalAuthorizer = state.globalAuthorizer
 
+    val unknownErrorString = stringResource(R.string.installer_unknown_error)
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collectLatest { event ->
             when (event) {
                 is EditViewEvent.SnackBar -> {
+                    // Resolve priority:
+                    // 1. Specific Resource ID
+                    // 2. Explicit String message
+                    // 3. Localized generic fallback
+                    val snackBarText = event.messageResId?.let { @SuppressLint("LocalContextGetResourceValueCall") context.getString(it) }
+                        ?: event.message
+                        ?: unknownErrorString
+
                     snackBarHostState.showSnackbar(
-                        message = event.message,
+                        message = snackBarText,
                         withDismissAction = true,
                     )
                 }
 
                 is EditViewEvent.Saved -> {
-                    navController.navigateUp()
+                    navigator.pop()
                 }
             }
         }
     }
 
+    val layoutDirection = LocalLayoutDirection.current
+    val horizontalSafeInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).asPaddingValues()
+
+    val topBarBackdrop = rememberMiuixBlurBackdrop(useBlur)
+
     Scaffold(
         modifier = Modifier.imePadding(),
         topBar = {
             TopAppBar(
-                modifier = Modifier.installerHazeEffect(hazeState, hazeStyle),
-                color = hazeState.getMiuixAppBarColor(),
+                modifier = Modifier.installerMiuixBlurEffect(topBarBackdrop),
+                color = topBarBackdrop.getMiuixAppBarColor(),
                 scrollBehavior = scrollBehavior,
-                title = stringResource(id = if (id == null) R.string.add else R.string.update),
+                title = stringResource(id?.let { R.string.update } ?: R.string.add),
                 navigationIcon = {
                     MiuixBackButton(
-                        modifier = Modifier.padding(start = 16.dp),
                         icon = MiuixIcons.Regular.Close,
-                        onClick = { navController.navigateUp() }
+                        onClick = { navigator.pop() }
                     )
                 },
                 actions = {
                     IconButton(
-                        modifier = Modifier.padding(end = 16.dp),
-                        onClick = { viewModel.dispatch(EditViewAction.SaveData) },
+                        onClick = { dispatch(EditViewAction.SaveData) },
                     ) {
                         Icon(
                             imageVector = MiuixIcons.Regular.Ok,
@@ -151,21 +210,25 @@ fun MiuixEditPage(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackBarHostState) },
+        snackbarHost = { SnackbarHost(state = snackBarHostState) },
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .then(hazeState?.let { Modifier.hazeSource(it) } ?: Modifier)
+                .then(topBarBackdrop?.let { Modifier.layerBackdrop(it) } ?: Modifier)
                 .scrollEndHaptic()
                 .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(top = paddingValues.calculateTopPadding()),
+            contentPadding = PaddingValues(
+                start = horizontalSafeInsets.calculateStartPadding(layoutDirection),
+                top = paddingValues.calculateTopPadding(),
+                end = horizontalSafeInsets.calculateEndPadding(layoutDirection)
+            ),
             overscrollEffect = null,
         ) {
             item { Spacer(modifier = Modifier.size(12.dp)) }
-            item { MiuixDataNameWidget(viewModel = viewModel) }
-            item { MiuixDataDescriptionWidget(viewModel = viewModel) }
+            item { MiuixDataNameWidget(state = state, dispatch = dispatch) }
+            item { MiuixDataDescriptionWidget(state = state, dispatch = dispatch) }
             item { SmallTitle(stringResource(R.string.config)) }
             item {
                 Card(
@@ -173,9 +236,19 @@ fun MiuixEditPage(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp)
                 ) {
-                    MiuixDataAuthorizerWidget(viewModel = viewModel)
-                    MiuixDataCustomizeAuthorizerWidget(viewModel = viewModel)
-                    MiuixDataInstallModeWidget(viewModel = viewModel)
+                    MiuixDataAuthorizerWidget(state = state, dispatch = dispatch)
+                    MiuixDataCustomizeAuthorizerWidget(state = state, dispatch = dispatch)
+                    MiuixDataInstallModeWidget(state = state, dispatch = dispatch)
+                    MiuixDataAutoApproveSessionWidget(
+                        state = state,
+                        dispatch = dispatch,
+                        onEnableRequest = {
+                            showAutoApproveSessionDialogState.value = true
+                        }
+                    )
+                    if (state.globalInstallerBiometricAuthMode == BiometricAuthMode.FollowConfig)
+                        MiuixDataRequireBiometricAuthWidget(state = state, dispatch = dispatch)
+                    MiuixToastModeWidget(state = state, dispatch = dispatch)
                 }
             }
             if (isNoneActive(stateAuthorizer, globalAuthorizer))
@@ -187,16 +260,16 @@ fun MiuixEditPage(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp)
                 ) {
-                    MiuixDataUserWidget(viewModel = viewModel)
-                    MiuixInstallReasonWidget(viewModel = viewModel)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) MiuixDataPackageSourceWidget(viewModel = viewModel)
-                    if (viewModel.state.isCustomInstallRequesterEnabled)
-                        MiuixDataInstallRequesterWidget(viewModel = viewModel)
-                    MiuixDataDeclareInstallerWidget(viewModel = viewModel)
-                    MiuixDataManualDexoptWidget(viewModel)
-                    MiuixDataAutoDeleteWidget(viewModel = viewModel)
-                    MiuixDisplaySdkWidget(viewModel = viewModel)
-                    MiuixDisplaySizeWidget(viewModel = viewModel)
+                    MiuixDataUserWidget(state = state, dispatch = dispatch)
+                    MiuixInstallReasonWidget(state = state, dispatch = dispatch)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                        MiuixDataPackageSourceWidget(state = state, dispatch = dispatch)
+                    MiuixDataInstallRequesterWidget(state = state, dispatch = dispatch)
+                    MiuixDataDeclareInstallerWidget(state = state, dispatch = dispatch)
+                    MiuixDataManualDexoptWidget(state = state, dispatch = dispatch)
+                    MiuixDataAutoDeleteWidget(state = state, dispatch = dispatch)
+                    MiuixDisplaySdkWidget(state = state, dispatch = dispatch)
+                    MiuixDisplaySizeWidget(state = state, dispatch = dispatch)
                 }
             }
             item { SmallTitle(stringResource(R.string.config_label_install_options)) }
@@ -206,12 +279,14 @@ fun MiuixEditPage(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 16.dp)
                 ) {
-                    MiuixDataForAllUserWidget(viewModel = viewModel)
-                    MiuixDataAllowTestOnlyWidget(viewModel = viewModel)
-                    MiuixDataAllowDowngradeWidget(viewModel = viewModel)
+                    MiuixDataForAllUserWidget(state = state, dispatch = dispatch)
+                    MiuixDataAllowTestOnlyWidget(state = state, dispatch = dispatch)
+                    MiuixDataAllowDowngradeWidget(state = state, dispatch = dispatch)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-                        MiuixDataBypassLowTargetSdkWidget(viewModel = viewModel)
-                    MiuixDataAllowAllRequestedPermissionsWidget(viewModel = viewModel)
+                        MiuixDataBypassLowTargetSdkWidget(state = state, dispatch = dispatch)
+                    MiuixDataAllowAllRequestedPermissionsWidget(state = state, dispatch = dispatch)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                        MiuixRequestUpdateOwnershipWidget(state = state, dispatch = dispatch)
                 }
             }
             item { SmallTitle(stringResource(R.string.config_label_preferences)) }
@@ -221,8 +296,12 @@ fun MiuixEditPage(
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 16.dp)
                 ) {
-                    MiuixDataSplitChooseAllWidget(viewModel = viewModel)
-                    MiuixDataApkChooseAllWidget(viewModel = viewModel)
+                    MiuixDataSplitChooseAllWidget(state = state, dispatch = dispatch)
+                    MiuixDataApkChooseAllWidget(state = state, dispatch = dispatch)
+                    if (state.checkAppSignature) {
+                        MiuixDataAllowSigMismatchWidget(state = state, dispatch = dispatch)
+                        MiuixDataAllowSigUnknownWidget(state = state, dispatch = dispatch)
+                    }
                 }
             }
             item { Spacer(Modifier.navigationBarsPadding()) }

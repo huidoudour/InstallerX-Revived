@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog
 
 sealed class DialogParamsType(val id: String) {
     data object IconWorking : DialogParamsType("icon_working")
-    data object IconPausing : DialogParamsType("icon_pausing")
+    data object IconError : DialogParamsType("icon_pausing")
     data object IconMenu : DialogParamsType("icon_menu")
 
     data object ButtonsCancel : DialogParamsType("buttons_cancel")
 
-    data object InstallerReady : DialogParamsType("installer_ready")
     data object InstallerResolving : DialogParamsType("installer_resolving")
     data object InstallerResolveFailed : DialogParamsType("installer_resolve_failed")
     data object InstallerPreparing : DialogParamsType("installer_preparing")
@@ -22,6 +23,7 @@ sealed class DialogParamsType(val id: String) {
     data object InstallerInfo : DialogParamsType("installer_info")
     data object InstallerPrepareInstall : DialogParamsType("installer_prepare")
     data object InstallerInstalling : DialogParamsType("installer_installing")
+    data object InstallerUnknownSource : DialogParamsType("installer_unknown_source")
     data object InstallerInstallSuccess : DialogParamsType("install_success")
     data object InstallerInstallFailed : DialogParamsType("install_failed")
     data object InstallerInstallCompleted : DialogParamsType("install_completed")
@@ -30,4 +32,7 @@ sealed class DialogParamsType(val id: String) {
     data object InstallerUninstallReady : DialogParamsType("uninstaller_ready")
     data object InstallerUninstallSuccess : DialogParamsType("uninstaller_uninstall_success")
     data object InstallerUninstallFailed : DialogParamsType("uninstaller_uninstall_failed")
+    data object InstallerUnarchiveReady : DialogParamsType("unarchive_ready")
+    data object InstallerUnarchiveError : DialogParamsType("unarchive_error")
+    data object InstallerUnarchiving : DialogParamsType("unarchiving")
 }

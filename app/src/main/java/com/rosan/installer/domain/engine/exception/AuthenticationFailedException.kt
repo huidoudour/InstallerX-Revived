@@ -3,13 +3,12 @@
 package com.rosan.installer.domain.engine.exception
 
 import com.rosan.installer.R
+import com.rosan.installer.core.exception.InstallerException
 
 class AuthenticationFailedException : InstallerException {
     constructor() : super()
 
     constructor(message: String?) : super(message)
 
-    override fun getStringResId(): Int {
-        return R.string.exception_authentication_failed
-    }
+    override fun getStringResId() = R.string.exception_authentication_failed
 }

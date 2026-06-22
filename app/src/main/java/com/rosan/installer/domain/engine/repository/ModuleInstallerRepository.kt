@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.domain.engine.repository
 
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.RootImplementation
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import com.rosan.installer.domain.settings.model.preferences.RootMode
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -18,6 +20,6 @@ interface ModuleInstallerRepository {
         config: ConfigModel,
         module: AppEntity.ModuleEntity,
         useRoot: Boolean,
-        rootImplementation: RootImplementation
+        rootMode: RootMode
     ): Flow<String> // Return a Flow of strings
 }

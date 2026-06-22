@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog.inner
 
 import androidx.compose.animation.AnimatedVisibility
@@ -6,53 +8,63 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.data.engine.executor.PackageManagerUtil
+import com.rosan.installer.domain.engine.model.install.UninstallFlags
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.main.installer.dialog.DialogButton
 import com.rosan.installer.ui.page.main.installer.dialog.DialogInnerParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParamsType
+import com.rosan.installer.ui.page.main.installer.dialog.dialogButtons
 import com.rosan.installer.ui.page.main.widget.chip.Chip
+import com.rosan.installer.core.bitmask.hasFlag
 
 /**
  * Displays the initial confirmation screen for an uninstall operation.
  * It provides an option to keep app data, shown via an animated Chip.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun uninstallReadyDialog(
     viewModel: InstallerViewModel
 ): DialogParams {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uninstallFlags = uiState.config.uninstallFlags
+    val isArchived = uiState.uiUninstallInfo?.isArchived == true
+
     // State to control the visibility of the animated chip.
     var showChips by remember { mutableStateOf(false) }
 
     // Use the shared info dialog and pass the click handler to toggle chip visibility.
     val baseParams = uninstallInfoDialog(
         viewModel = viewModel,
-        onTitleExtraClick = { showChips = !showChips }
+        onTitleExtraClick = { showChips = !showChips },
+        showTitleExtra = !isArchived
     )
 
-    // Collect uninstall flags to manage the state of the "keep data" chip.
-    val uninstallFlags by viewModel.uninstallFlags.collectAsState()
-    val deleteKeepData = (uninstallFlags and PackageManagerUtil.DELETE_KEEP_DATA) != 0
-    val deleteAllUsers = (uninstallFlags and PackageManagerUtil.DELETE_ALL_USERS) != 0
-    val deleteSystemApp = (uninstallFlags and PackageManagerUtil.DELETE_SYSTEM_APP) != 0
+    val deleteKeepData = uninstallFlags.hasFlag(UninstallFlags.DELETE_KEEP_DATA)
+    val deleteAllUsers = uninstallFlags.hasFlag(UninstallFlags.DELETE_ALL_USERS)
+    val deleteSystemApp = uninstallFlags.hasFlag(UninstallFlags.DELETE_SYSTEM_APP)
 
     // Override the 'text' and 'buttons' sections of the base parameters.
     return baseParams.copy(
         text = DialogInnerParams(DialogParamsType.InstallerUninstallReady.id) {
+            if (isArchived) {
+                Text(stringResource(R.string.uninstall_archive_message))
+                return@DialogInnerParams
+            }
+
             // Use AnimatedVisibility to show/hide the chip with animation.
             AnimatedVisibility(
                 visible = showChips,
@@ -68,7 +80,7 @@ fun uninstallReadyDialog(
                             // Dispatch the action to toggle the flag in the ViewModel.
                             viewModel.dispatch(
                                 InstallerViewAction.ToggleUninstallFlag(
-                                    flag = PackageManagerUtil.DELETE_KEEP_DATA,
+                                    flag = UninstallFlags.DELETE_KEEP_DATA,
                                     enable = !deleteKeepData
                                 )
                             )
@@ -82,7 +94,7 @@ fun uninstallReadyDialog(
                             // Dispatch the action to toggle the flag in the ViewModel.
                             viewModel.dispatch(
                                 InstallerViewAction.ToggleUninstallFlag(
-                                    flag = PackageManagerUtil.DELETE_ALL_USERS,
+                                    flag = UninstallFlags.DELETE_ALL_USERS,
                                     enable = !deleteAllUsers
                                 )
                             )
@@ -96,7 +108,7 @@ fun uninstallReadyDialog(
                             // Dispatch the action to toggle the flag in the ViewModel.
                             viewModel.dispatch(
                                 InstallerViewAction.ToggleUninstallFlag(
-                                    flag = PackageManagerUtil.DELETE_SYSTEM_APP,
+                                    flag = UninstallFlags.DELETE_SYSTEM_APP,
                                     enable = !deleteSystemApp
                                 )
                             )
@@ -110,7 +122,7 @@ fun uninstallReadyDialog(
         buttons = dialogButtons(DialogParamsType.InstallerUninstallReady.id) {
             listOf(
                 // Uninstall button triggers the uninstall action.
-                DialogButton(stringResource(R.string.uninstall)) {
+                DialogButton(stringResource(if (isArchived) R.string.uninstall_archive else R.string.uninstall)) {
                     viewModel.dispatch(InstallerViewAction.Uninstall)
                 },
                 // Cancel button closes the dialog.

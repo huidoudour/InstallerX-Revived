@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.data.session.resolver
 
 import android.content.Context
@@ -5,16 +7,15 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
 import com.rosan.installer.data.session.util.copyToWithProgress
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.session.exception.HttpNotAllowedException
-import com.rosan.installer.domain.session.exception.HttpRestrictedForLocalhostException
-import com.rosan.installer.domain.session.exception.ResolveFailedLinkNotValidException
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.session.exception.ResolveException
 import com.rosan.installer.domain.session.model.ProgressEntity
+import com.rosan.installer.domain.session.model.ResolveErrorType
 import com.rosan.installer.domain.session.repository.NetworkResolver
-import com.rosan.installer.domain.settings.model.HttpProfile
-import com.rosan.installer.domain.settings.repository.AppSettingsRepo
+import com.rosan.installer.domain.settings.model.preferences.HttpProfile
+import com.rosan.installer.domain.settings.repository.AppSettingsRepository
 import com.rosan.installer.domain.settings.repository.StringSetting
-import com.rosan.installer.util.ArchiveUtils
+import com.rosan.installer.util.isZipMagicNumber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -40,7 +41,7 @@ import kotlin.math.min
 class OkHttpNetworkResolver(
     private val context: Context,
     private val okHttpClient: OkHttpClient,
-    private val appSettingsRepo: AppSettingsRepo
+    private val appSettingsRepo: AppSettingsRepository
 ) : NetworkResolver {
     // Mutex to ensure thread-safe progress emission
     private val progressMutex = Mutex()
@@ -63,14 +64,14 @@ class OkHttpNetworkResolver(
         cacheDirectory: String,
         progressFlow: MutableSharedFlow<ProgressEntity>
     ): List<DataEntity> = withContext(Dispatchers.IO) {
-        Timber.Forest.d("Starting smart download for URI: $uri")
+        Timber.d("Starting smart download for URI: $uri")
         progressFlow.emit(ProgressEntity.InstallPreparing(-1f))
 
         // 1. Security & Config Checks
         val httpProfileName = appSettingsRepo.getString(StringSetting.LabHttpProfile).first()
-        validateSecurity(uri, HttpProfile.Companion.fromString(httpProfileName))
+        validateSecurity(uri, HttpProfile.fromString(httpProfileName))
 
-        val client = buildClientForScheme(uri, HttpProfile.Companion.fromString(httpProfileName))
+        val client = buildClientForScheme(uri, HttpProfile.fromString(httpProfileName))
 
         // 2. Pre-flight Check (HEAD Request)
         val preFlight = performPreFlightCheck(client, uri.toString())
@@ -78,8 +79,10 @@ class OkHttpNetworkResolver(
         val supportsRange = preFlight.second
 
         if (!verifyArchiveMagicNumber(client, uri.toString())) {
-            // Throw a custom exception or handle the error
-            throw ResolveFailedLinkNotValidException("The target file is not a valid ZIP/APK archive.")
+            throw ResolveException(
+                errorType = ResolveErrorType.LINK_NOT_VALID,
+                message = "The target file is not a valid ZIP/APK archive."
+            )
         }
 
         val tempFile = File(cacheDirectory, UUID.randomUUID().toString())
@@ -94,10 +97,10 @@ class OkHttpNetworkResolver(
 
         try {
             if (threadCount > 1) {
-                Timber.Forest.i("Strategy: Multi-threaded ($threadCount threads). Size: $contentLength")
+                Timber.i("Strategy: Multi-threaded ($threadCount threads). Size: $contentLength")
                 downloadMultiThreaded(client, uri.toString(), tempFile, contentLength, threadCount, progressFlow)
             } else {
-                Timber.Forest.i("Strategy: Single-threaded. Range Support: $supportsRange, Size: $contentLength")
+                Timber.i("Strategy: Single-threaded. Range Support: $supportsRange, Size: $contentLength")
                 downloadSingleThreaded(client, uri.toString(), tempFile, progressFlow)
             }
 
@@ -291,7 +294,7 @@ class OkHttpNetworkResolver(
                 return Pair(length, supports)
             }
         } catch (e: Exception) {
-            Timber.Forest.w(e, "Pre-flight HEAD request failed. Assuming single thread.")
+            Timber.w(e, "Pre-flight HEAD request failed. Assuming single thread.")
             return Pair(-1L, false)
         }
     }
@@ -318,7 +321,7 @@ class OkHttpNetworkResolver(
         val scheme = uri.scheme?.lowercase()
         return if (scheme == "http" && profile != HttpProfile.ALLOW_SECURE) {
             okHttpClient.newBuilder()
-                .connectionSpecs(listOf(ConnectionSpec.Companion.MODERN_TLS, ConnectionSpec.Companion.CLEARTEXT))
+                .connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT))
                 .build()
         } else {
             okHttpClient
@@ -331,10 +334,17 @@ class OkHttpNetworkResolver(
 
         if (scheme == "http") {
             when (profile) {
-                HttpProfile.ALLOW_SECURE -> throw HttpNotAllowedException("Cleartext HTTP not allowed.")
+                HttpProfile.ALLOW_SECURE -> throw ResolveException(
+                    errorType = ResolveErrorType.HTTP_NOT_ALLOWED,
+                    message = "Cleartext HTTP not allowed."
+                )
+
                 HttpProfile.ALLOW_LOCAL -> {
                     if (host != "localhost" && host != "127.0.0.1" && host != "::1") {
-                        throw HttpRestrictedForLocalhostException("Cleartext HTTP allowed only for localhost.")
+                        throw ResolveException(
+                            errorType = ResolveErrorType.HTTP_RESTRICTED_FOR_LOCALHOST,
+                            message = "Cleartext HTTP allowed only for localhost."
+                        )
                     }
                 }
 
@@ -377,13 +387,13 @@ class OkHttpNetworkResolver(
                 }
 
                 if (bytesRead >= 4) {
-                    ArchiveUtils.isZipMagicNumber(buffer)
+                    buffer.isZipMagicNumber()
                 } else {
                     false
                 }
             }
         } catch (e: Exception) {
-            Timber.Forest.w(e, "Failed to verify archive magic number.")
+            Timber.w(e, "Failed to verify archive magic number.")
             // Assume true on network failure to avoid blocking valid downloads
             // if the server simply mishandled the Range request.
             true

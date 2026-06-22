@@ -4,9 +4,9 @@ package com.rosan.installer.data.engine.parser.strategy
 
 import com.rosan.installer.data.engine.parser.ApkParser
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -14,7 +14,9 @@ import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 import java.util.zip.ZipFile
 
-object MultiApkZipStrategy : AnalysisStrategy {
+class MultiApkZipStrategy(
+    private val apkParser: ApkParser
+) : AnalysisStrategy {
 
     override suspend fun analyze(
         config: ConfigModel,
@@ -36,8 +38,7 @@ object MultiApkZipStrategy : AnalysisStrategy {
         apkEntries.map { entry ->
             async(Dispatchers.IO) {
                 // Use ApkParser to handle extraction and deep analysis
-                ApkParser.parseZipEntryFull(
-                    config,
+                apkParser.parseZipEntryFull(
                     zipFile,
                     entry,
                     data,

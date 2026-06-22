@@ -14,29 +14,36 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
+import com.rosan.installer.ui.page.main.installer.InstallerStage
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.page.main.installer.InstallerViewState
+import com.rosan.installer.ui.page.miuix.widgets.ProgressButton
+import com.rosan.installer.ui.page.miuix.widgets.ProgressButtonDefaults
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.patched.ProgressButton
-import top.yukonga.miuix.kmp.basic.patched.ProgressButtonDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
 @Composable
 fun InstallPreparingContent(
     viewModel: InstallerViewModel,
-    onCancel: () -> Unit
+    onBackground: () -> Unit,
+    @StringRes descriptionRes: Int = R.string.installer_preparing_desc,
+    descriptionText: String? = null,
+    @StringRes buttonTextRes: Int = R.string.loading
 ) {
-    val currentState = viewModel.state
-    val progress = if (currentState is InstallerViewState.Preparing) {
-        currentState.progress
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val stage = uiState.stage
+    // Extract progress via Smart Cast from the stage
+    val progress = if (stage is InstallerStage.Preparing) {
+        stage.progress
     } else {
-        0f
+        -1f // Default to indeterminate if state is wrong
     }
 
     val animatedProgress by animateFloatAsState(
@@ -61,7 +68,7 @@ fun InstallPreparingContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = stringResource(R.string.installer_preparing_desc),
+                text = descriptionText ?: stringResource(descriptionRes),
                 color = MiuixTheme.colorScheme.onSurface,
                 style = MiuixTheme.textStyles.body1
             )
@@ -74,7 +81,7 @@ fun InstallPreparingContent(
 
         ProgressButton(
             progress = animatedProgress,
-            onClick = onCancel,
+            onClick = onBackground,
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
@@ -88,7 +95,7 @@ fun InstallPreparingContent(
         ) {
             Text(
                 color = contentColor,
-                text = stringResource(R.string.loading)
+                text = stringResource(buttonTextRes)
             )
         }
     }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.util.pm
 
 import android.content.pm.ApplicationInfo
@@ -8,6 +10,8 @@ import androidx.core.content.pm.PackageInfoCompat
 import timber.log.Timber
 
 private const val FLAG_ARCHIVED = 1 shl 30
+
+const val REASON_REMIND_OWNERSHIP = 2
 
 val PackageInfo.compatVersionCode: Long
     get() = PackageInfoCompat.getLongVersionCode(this)

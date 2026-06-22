@@ -1,33 +1,68 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.settings.config.edit
 
-import com.rosan.installer.domain.settings.model.Authorizer
-import com.rosan.installer.domain.settings.model.ConfigModel
-import com.rosan.installer.domain.settings.model.DexoptMode
-import com.rosan.installer.domain.settings.model.InstallMode
-import com.rosan.installer.domain.settings.model.InstallReason
-import com.rosan.installer.domain.settings.model.NamedPackage
-import com.rosan.installer.domain.settings.model.PackageSource
+import com.rosan.installer.R
+import com.rosan.installer.domain.settings.model.config.Authorizer
+import com.rosan.installer.domain.settings.model.config.BiometricAuthMode
+import com.rosan.installer.domain.settings.model.config.ConfigModel
+import com.rosan.installer.domain.settings.model.config.DexoptMode
+import com.rosan.installer.domain.settings.model.config.InstallRequesterMode
+import com.rosan.installer.domain.settings.model.config.InstallMode
+import com.rosan.installer.domain.settings.model.config.InstallReason
+import com.rosan.installer.domain.settings.model.config.InstallerMode
+import com.rosan.installer.domain.settings.model.app.NamedPackage
+import com.rosan.installer.domain.settings.model.config.PackageSource
+import com.rosan.installer.domain.settings.model.config.ToastMode
 
 data class EditViewState(
     val data: Data = Data.build(ConfigModel.default),
+    val originalData: Data? = null,
     val managedInstallerPackages: List<NamedPackage> = emptyList(),
     val availableUsers: Map<Int, String> = emptyMap(),
-    val isCustomInstallRequesterEnabled: Boolean = false
+
+    // Global states integrated into the view state
+    val globalAuthorizer: Authorizer = Authorizer.Global,
+    val globalInstallerBiometricAuthMode: BiometricAuthMode = BiometricAuthMode.Disable,
+    val checkAppSignature: Boolean = true,
+    val labRespectPlatformInstallPolicy: Boolean = false
 ) {
+    // Computed property for unsaved changes
+    val hasUnsavedChanges: Boolean
+        get() = originalData != null && data != originalData
+
+    // Return string resource IDs instead of resolved strings to keep State pure
+    val activeErrorResIds: List<Int>
+        get() {
+            val errors = mutableListOf<Int>()
+            with(data) {
+                if (errorName) errors.add(R.string.config_error_name)
+                if (errorCustomizeAuthorizer) errors.add(R.string.config_error_customize_authorizer)
+                if (errorInstaller) errors.add(R.string.config_error_installer)
+                if (errorInstallRequester) errors.add(R.string.config_error_package_not_found)
+            }
+            return errors
+        }
+
+    val hasErrors: Boolean
+        get() = activeErrorResIds.isNotEmpty()
+
     data class Data(
         val name: String,
         val description: String,
         val authorizer: Authorizer,
         val customizeAuthorizer: String,
         val installMode: InstallMode,
+        val autoApproveSession: Boolean,
+        val toastMode: ToastMode,
         val enableCustomizePackageSource: Boolean,
         val packageSource: PackageSource,
         val enableCustomizeInstallReason: Boolean,
         val installReason: InstallReason,
-        val enableCustomizeInstallRequester: Boolean,
+        val installRequesterMode: InstallRequesterMode,
         val installRequester: String,
         val installRequesterUid: Int? = null,
-        val declareInstaller: Boolean,
+        val installerMode: InstallerMode,
         val installer: String,
         val enableCustomizeUser: Boolean,
         val targetUserId: Int,
@@ -42,20 +77,20 @@ data class EditViewState(
         val allowTestOnly: Boolean,
         val allowDowngrade: Boolean,
         val bypassLowTargetSdk: Boolean,
+        val allowSigMismatch: Boolean,
+        val allowSigUnknown: Boolean,
         val allowAllRequestedPermissions: Boolean,
+        val requestUpdateOwnership: Boolean,
         val splitChooseAll: Boolean,
-        val apkChooseAll: Boolean
+        val apkChooseAll: Boolean,
+        val requireBiometricAuth: Boolean
     ) {
         val errorName = name.isEmpty()// || name == "Default"
-
         val authorizerCustomize = authorizer == Authorizer.Customize
-
         val errorCustomizeAuthorizer = authorizerCustomize && customizeAuthorizer.isEmpty()
-
-        val errorInstaller = declareInstaller && installer.isEmpty()
-
-        // Validation: Error if enabled but package name is empty OR (package name is not empty but UID not found)
-        val errorInstallRequester = enableCustomizeInstallRequester && (installRequester.isEmpty() || installRequesterUid == null)
+        val errorInstaller = installerMode == InstallerMode.Custom && installer.isEmpty()
+        val errorInstallRequester =
+            installRequesterMode == InstallRequesterMode.Custom && (installRequester.isEmpty() || installRequesterUid == null)
 
         fun toConfigModel(): ConfigModel = ConfigModel(
             name = this.name,
@@ -63,12 +98,16 @@ data class EditViewState(
             authorizer = this.authorizer,
             customizeAuthorizer = if (this.authorizerCustomize) this.customizeAuthorizer else "",
             installMode = this.installMode,
+            autoApproveSession = this.autoApproveSession,
+            toastMode = this.toastMode,
             enableCustomizeInstallReason = this.enableCustomizeInstallReason,
             installReason = this.installReason,
             enableCustomizePackageSource = this.enableCustomizePackageSource,
             packageSource = this.packageSource,
-            installRequester = if (this.enableCustomizeInstallRequester) this.installRequester else null,
-            installer = if (this.declareInstaller) this.installer else null,
+            installRequesterMode = this.installRequesterMode,
+            installRequester = if (this.installRequesterMode == InstallRequesterMode.Custom) this.installRequester else null,
+            installerMode = this.installerMode,
+            installer = this.installer.takeIf { it.isNotEmpty() },
             enableCustomizeUser = this.enableCustomizeUser,
             targetUserId = this.targetUserId,
             enableManualDexopt = this.enableManualDexopt,
@@ -82,9 +121,13 @@ data class EditViewState(
             allowTestOnly = this.allowTestOnly,
             allowDowngrade = this.allowDowngrade,
             bypassLowTargetSdk = this.bypassLowTargetSdk,
+            allowSigMismatch = this.allowSigMismatch,
+            allowSigUnknown = this.allowSigUnknown,
             allowAllRequestedPermissions = this.allowAllRequestedPermissions,
+            requestUpdateOwnership = this.requestUpdateOwnership,
             splitChooseAll = this.splitChooseAll,
-            apkChooseAll = this.apkChooseAll
+            apkChooseAll = this.apkChooseAll,
+            requireBiometricAuth = this.requireBiometricAuth
         )
 
         companion object {
@@ -93,15 +136,17 @@ data class EditViewState(
                 description = config.description,
                 authorizer = config.authorizer,
                 customizeAuthorizer = config.customizeAuthorizer,
+                toastMode = config.toastMode,
                 installMode = config.installMode,
+                autoApproveSession = config.autoApproveSession,
                 enableCustomizePackageSource = config.enableCustomizePackageSource,
                 enableCustomizeInstallReason = config.enableCustomizeInstallReason,
                 installReason = config.installReason,
                 packageSource = config.packageSource,
-                enableCustomizeInstallRequester = config.installRequester != null,
+                installRequesterMode = config.installRequesterMode,
                 installRequester = config.installRequester ?: "",
                 installRequesterUid = null,
-                declareInstaller = config.installer != null,
+                installerMode = config.installerMode,
                 installer = config.installer ?: "",
                 enableCustomizeUser = config.enableCustomizeUser,
                 targetUserId = config.targetUserId,
@@ -116,11 +161,14 @@ data class EditViewState(
                 allowTestOnly = config.allowTestOnly,
                 allowDowngrade = config.allowDowngrade,
                 bypassLowTargetSdk = config.bypassLowTargetSdk,
+                allowSigMismatch = config.allowSigMismatch,
+                allowSigUnknown = config.allowSigUnknown,
                 allowAllRequestedPermissions = config.allowAllRequestedPermissions,
+                requestUpdateOwnership = config.requestUpdateOwnership,
                 splitChooseAll = config.splitChooseAll,
-                apkChooseAll = config.apkChooseAll
+                apkChooseAll = config.apkChooseAll,
+                requireBiometricAuth = config.requireBiometricAuth
             )
         }
     }
 }
-

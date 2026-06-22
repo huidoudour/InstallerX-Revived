@@ -180,7 +180,7 @@
     <string name="installer_installing">Встановлення…</string>
     <string name="installer_install_failed">Не вдалося встановити</string>
     <string name="installer_install_success">Успішно встановлено</string>
-    <string name="installer_silent_install">Тихе встановлення</string>
+    <string name="installer_move_to_background">Тихе встановлення</string>
     <string name="installer_error_reason">Причина помилки</string>
     <string name="installer_unknown_error">Невідома помилка</string>
     <string name="installer_channel_name">Сповіщення про встановлення</string>
@@ -270,7 +270,6 @@
     <string name="theme_settings_use_expressive_ui_desc">Використовуйте новий експресивний UI</string>
     <string name="theme_settings_use_blur">Увімкнути розмиття</string>
     <string name="theme_settings_use_blur_desc">Увімкніть розмиття для програми</string>
-    <string name="theme_settings_use_blur_warning">Ефект розмиття може бути нестабільним і викликати несподівані проблеми на Android 11 і старіших версіях. У разі виникнення проблем вам може знадобитися очистити дані програми. Ви хочете продовжити?</string>
     <string name="theme_settings_google_ui_style">Стиль Google UI</string>
     <string name="theme_settings_theme_mode">Стиль теми</string>
     <string name="theme_settings_theme_mode_desc">Виберіть стиль теми</string>
@@ -460,4 +459,27 @@
     <string name="uninstall_call_uninstaller_manually_desc">Видалити програму за вказаною назвою пакета</string>
     <string name="uninstall_progress_text">Видалення...</string>
     <string name="uninstall_enter_package_name">Введіть назву пакета, щоб видалити</string>
+    <string name="installer_temp_settings_tip">Ці налаштування є тимчасовими для цього сеансу. Щоб зберегти їх, перейдіть у Налаштування</string>
+    <string name="installer_show_oem_special">Показати додаткову інформацію OEM</string>
+    <string name="installer_show_oem_special_desc">Аналізуйте та показує деякі специфічні значення для OEM apk(s) у діалоговому вікні встановлення</string>
+    <string name="lab_show_apk_path">Показати шлях до файлу</string>
+    <string name="lab_show_apk_path_desc">Відображати шлях до файлу в деталях програми</string>
+    <string name="lab_show_install_initiator">Показати ініціатора встановлення</string>
+    <string name="lab_show_apk_path_label">Шлях до файлу</string>
+    <string name="lab_show_install_initiator_label">Ініціатор встановлення</string>
+    <string name="lab_show_install_initiator_desc">Показати, яка програма почала встановлення</string>
+    <string name="permission_list">Список дозволів</string>
+    <string name="permission_list_desc">Список дозволів, які запитує встановлюваний пакет</string>
+    <string name="inactivate">Вимкнути</string>
+    <string name="activate">Увімкнути</string>
+    <string name="available">Доступно</string>
+    <string name="unavailable">Недоступно</string>
+    <string name="running">Запущено</string>
+    <string name="working_status_default_installer">Використовується як типовий встановлювач</string>
+    <string name="working_status_not_default_installer">Не вибрано типовим встановлювачем</string>
+    <string name="working_status_default_installer_desc">Зараз цей застосунок є типовим встановлювачем пакетів</string>
+    <string name="working_status_system_installer">Працює як системний встановлювач пакетів</string>
+    <string name="working_status_system_installer_desc">Застосунок запущено як системний встановлювач пакетів</string>
+    <string name="working_status_none_authorizer_desc">Не надано дозволу. Щоб установити застосунки, надайте дозвіл на встановлення з невідомих джерел</string>
+    <string name="working_status_not_default_installer_click_details">Натисніть, щоб переглянути подробиці</string>
 </resources>

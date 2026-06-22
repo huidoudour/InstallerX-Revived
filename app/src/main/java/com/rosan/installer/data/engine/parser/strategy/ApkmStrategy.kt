@@ -4,10 +4,11 @@ package com.rosan.installer.data.engine.parser.strategy
 
 import android.graphics.drawable.Drawable
 import com.rosan.installer.data.engine.parser.parseSplitMetadata
+import com.rosan.installer.data.engine.signature.PendingApkSignatureAnalyzer
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -15,13 +16,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import java.io.File
 import java.util.zip.ZipFile
 
-object ApkmStrategy : AnalysisStrategy, KoinComponent {
-    private val json by inject<Json>()
+class ApkmStrategy(
+    private val json: Json,
+    private val pendingApkSignatureAnalyzer: PendingApkSignatureAnalyzer
+) : AnalysisStrategy {
 
     @OptIn(ExperimentalSerializationApi::class)
     override suspend fun analyze(
@@ -72,9 +73,19 @@ object ApkmStrategy : AnalysisStrategy, KoinComponent {
                                 sourceType = extra.dataType,
                                 type = metadata.type,
                                 filterType = metadata.filterType,
-                                configValue = metadata.configValue
+                                configValue = metadata.configValue,
+                                signatureInfo = if (extra.checkAppSignature) {
+                                    pendingApkSignatureAnalyzer.analyze(entryData, extra.cacheDirectory)
+                                } else {
+                                    null
+                                }
                             )
                         } else {
+                            val signatureInfo = if (extra.checkAppSignature) {
+                                pendingApkSignatureAnalyzer.analyze(entryData, extra.cacheDirectory)
+                            } else {
+                                null
+                            }
                             AppEntity.BaseEntity(
                                 packageName = manifest.packageName,
                                 sharedUserId = null,
@@ -85,7 +96,9 @@ object ApkmStrategy : AnalysisStrategy, KoinComponent {
                                 icon = icon,
                                 targetSdk = null,
                                 minSdk = manifest.minApi,
-                                sourceType = extra.dataType
+                                sourceType = extra.dataType,
+                                signatureHash = signatureInfo?.primarySha256,
+                                signatureInfo = signatureInfo
                             )
                         }
                         sequenceOf(entity)

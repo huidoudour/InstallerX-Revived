@@ -3,29 +3,22 @@
 package com.rosan.installer.ui.activity
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Modifier
 import com.rosan.installer.R
-import com.rosan.installer.data.session.manager.InstallerSessionManager
+import com.rosan.installer.core.app.ActivityContracts.KEY_UNINSTALLER_ID
+import com.rosan.installer.domain.device.model.PermissionType
+import com.rosan.installer.domain.device.provider.PermissionChecker
 import com.rosan.installer.domain.session.model.ProgressEntity
+import com.rosan.installer.domain.session.repository.InstallerSessionManager
 import com.rosan.installer.domain.session.repository.InstallerSessionRepository
-import com.rosan.installer.domain.settings.model.ThemeState
 import com.rosan.installer.domain.settings.provider.ThemeStateProvider
-import com.rosan.installer.ui.page.main.installer.InstallerPage
-import com.rosan.installer.ui.page.miuix.installer.MiuixInstallerPage
-import com.rosan.installer.ui.theme.InstallerTheme
-import com.rosan.installer.ui.util.PermissionDenialReason
-import com.rosan.installer.ui.util.PermissionManager
+import com.rosan.installer.framework.auth.BiometricAuthBridge
+import com.rosan.installer.ui.common.permission.PermissionRequester
 import com.rosan.installer.util.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,80 +29,72 @@ import org.koin.core.component.inject
 import timber.log.Timber
 
 class UninstallerActivity : ComponentActivity(), KoinComponent {
-    companion object {
-        private const val KEY_ID = "uninstaller_id"
-        private const val EXTRA_PACKAGE_NAME = "package_name"
+    private companion object {
+        const val EXTRA_PACKAGE_NAME = "package_name"
     }
 
     private val themeStateProvider by inject<ThemeStateProvider>()
     private val sessionManager by inject<InstallerSessionManager>()
-    private var installer: InstallerSessionRepository? = null
+    private var session: InstallerSessionRepository? = null
     private var job: Job? = null
+    private var latestProgress: ProgressEntity = ProgressEntity.Ready
 
-    private lateinit var permissionManager: PermissionManager
+    private val permissionChecker: PermissionChecker by inject()
+    private lateinit var permissionRequester: PermissionRequester
 
     // Flag to track if the activity is stopped due to a permission request
     private var isRequestingPermission = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
-        // Compat Navigation Bar color for Xiaomi Devices
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            window.isNavigationBarContrastEnforced = false
         super.onCreate(savedInstanceState)
         Timber.d("UninstallerActivity onCreate.")
 
-        permissionManager = PermissionManager(this)
+        permissionRequester = PermissionRequester(this, permissionChecker)
         // Set up the callback to intercept the settings launch event
-        permissionManager.onBeforeLaunchSettings = {
-            Timber.d("Launching settings for permission, preventing repo closure in onStop.")
+        permissionRequester.onBeforeLaunchSettings = {
+            Timber.d("Launching settings for permission, preventing session closure in onStop.")
             isRequestingPermission = true
         }
 
-        val installerId = savedInstanceState?.getString(KEY_ID)
-        installer = sessionManager.getOrCreate(installerId)
-
-        // Start the process only if it's a fresh launch, not a configuration change
         if (savedInstanceState == null) {
-            var packageName: String?
-            // First, try to get it from our custom extra (for internal calls)
-            packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
-
-            // If not found, try to get it from the intent data (for system calls)
-            if (packageName.isNullOrBlank()) {
-                val action = intent.action
-                if (action == @Suppress("DEPRECATION") Intent.ACTION_UNINSTALL_PACKAGE || action == Intent.ACTION_DELETE) {
-                    intent.data?.schemeSpecificPart?.let {
-                        packageName = it
-                    }
-                }
-            }
-
-            if (packageName.isNullOrBlank()) {
-                Timber.e("UninstallerActivity started without a package name.")
-                installer?.close()
-                this.finish()
-                return
-            }
-
-            Timber.d("Target package to uninstall: $packageName")
-            // Trigger the uninstall resolution process
-            requestPermissionsAndProceed(packageName)
+            startUninstallIntent(intent)
+            return
         }
 
+        val sessionId = savedInstanceState.getString(KEY_UNINSTALLER_ID)
+        session = sessionManager.getOrCreate(sessionId)
         startCollectors()
         showContent()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Timber.d("UninstallerActivity onNewIntent.")
+
+        if (shouldDeferUninstallIntent()) {
+            sessionManager.enqueueForegroundUninstall(Intent(intent).apply { removeExtra(KEY_UNINSTALLER_ID) })
+            Timber.d("UninstallerActivity deferred foreground uninstall intent.")
+            return
+        }
+
+        startUninstallIntent(intent)
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
-        val currentId = installer?.id
-        outState.putString(KEY_ID, currentId)
+        val currentId = session?.id
+        outState.putString(KEY_UNINSTALLER_ID, currentId)
         Timber.d("UninstallerActivity onSaveInstanceState: Saving id: $currentId")
         super.onSaveInstanceState(outState)
     }
 
     override fun onStop() {
         super.onStop()
+
+        if (BiometricAuthBridge.isAuthenticating) {
+            Timber.d("onStop: Ignored session closure due to active biometric authentication.")
+            return
+        }
         // Check if the screen is currently on.
         // If the screen is off, onStop is triggered by locking the device.
         // We explicitly want to ignore this case.
@@ -123,12 +108,12 @@ class UninstallerActivity : ComponentActivity(), KoinComponent {
         }
         // Only strictly interpret as user leaving when not finishing and not changing configurations (e.g., rotation)
         if (!isFinishing && !isChangingConfigurations && !isRequestingPermission) {
-            installer?.let { repo ->
+            session?.let { session ->
                 Timber.d("onStop: User left UninstallerActivity. Closing repository.")
-                repo.close()
+                session.close()
             }
         } else if (isRequestingPermission) {
-            Timber.d("onStop: Ignored repo closure due to active permission request.")
+            Timber.d("onStop: Ignored session closure due to active permission request.")
             isRequestingPermission = false
         }
     }
@@ -142,74 +127,109 @@ class UninstallerActivity : ComponentActivity(), KoinComponent {
     }
 
     private fun requestPermissionsAndProceed(packageName: String) {
-        permissionManager.requestEssentialPermissions(
+        permissionRequester.requestEssentialPermissions(
             onGranted = {
                 Timber.d("Permissions granted. Proceeding with uninstall for $packageName")
-                installer?.resolveUninstall(this@UninstallerActivity, packageName)
+                session?.resolveUninstall(this@UninstallerActivity, packageName)
             },
             onDenied = { reason ->
                 when (reason) {
-                    PermissionDenialReason.NOTIFICATION -> {
+                    PermissionType.NOTIFICATION -> {
                         Timber.w("Notification permission was denied.")
                         this.toast(R.string.enable_notification_hint)
                     }
 
-                    PermissionDenialReason.STORAGE -> {
+                    PermissionType.STORAGE -> {
                         Timber.w("Storage permission was denied.")
                         this.toast(R.string.enable_storage_permission_hint)
                     }
                 }
+                session?.close()
                 finish()
             }
         )
+    }
+
+    private fun startUninstallIntent(intent: Intent) {
+        this.intent = intent
+        job?.cancel()
+        val newSession = sessionManager.getOrCreate(null)
+        newSession.background(false)
+        session = newSession
+        intent.putExtra(KEY_UNINSTALLER_ID, newSession.id)
+        latestProgress = ProgressEntity.Ready
+
+        val packageName = intent.uninstallPackageName()
+        if (packageName.isNullOrBlank()) {
+            Timber.e("UninstallerActivity started without a package name.")
+            newSession.close()
+            finish()
+            return
+        }
+
+        startCollectors()
+        showContent()
+        Timber.d("Target package to uninstall: $packageName")
+        requestPermissionsAndProceed(packageName)
+    }
+
+    private fun Intent.uninstallPackageName(): String? {
+        getStringExtra(EXTRA_PACKAGE_NAME)?.let { if (it.isNotBlank()) return it }
+
+        val isUninstallAction =
+            action == @Suppress("DEPRECATION") Intent.ACTION_UNINSTALL_PACKAGE ||
+                    action == Intent.ACTION_DELETE
+        if (!isUninstallAction) return null
+
+        return data?.schemeSpecificPart
+    }
+
+    private fun shouldDeferUninstallIntent(): Boolean =
+        session != null && latestProgress.isForegroundUninstallProgress()
+
+    private fun launchNextPendingUninstall(): Boolean {
+        val nextIntent = sessionManager.takeNextForegroundUninstall() ?: return false
+        Timber.d("Launching deferred foreground uninstall intent.")
+        startUninstallIntent(nextIntent)
+        return true
     }
 
     private fun startCollectors() {
         job?.cancel()
         val scope = CoroutineScope(Dispatchers.Main.immediate)
         job = scope.launch {
-            installer?.progress?.collect { progress ->
-                Timber.d("[id=${installer?.id}] Activity collected progress: ${progress::class.simpleName}")
+            session?.progress?.collect { progress ->
+                Timber.d("[id=${session?.id}] Activity collected progress: ${progress::class.simpleName}")
+                latestProgress = progress
                 // Finish the activity on final states
                 if (progress is ProgressEntity.Finish) {
-                    if (!this@UninstallerActivity.isFinishing) this@UninstallerActivity.finish()
+                    if (!launchNextPendingUninstall() && !this@UninstallerActivity.isFinishing) {
+                        this@UninstallerActivity.finish()
+                    }
                 }
             }
         }
     }
 
+    private fun ProgressEntity.isForegroundUninstallProgress(): Boolean =
+        this is ProgressEntity.UninstallResolving ||
+                this is ProgressEntity.UninstallReady ||
+                this is ProgressEntity.Uninstalling ||
+                this is ProgressEntity.UninstallSuccess ||
+                this is ProgressEntity.UninstallFailed ||
+                this is ProgressEntity.UninstallResolveFailed
+
     private fun showContent() {
         setContent {
-            val uiState by themeStateProvider.themeStateFlow.collectAsState(initial = ThemeState())
-            if (!uiState.isLoaded) return@setContent
-
-            val currentInstaller = installer
-            if (currentInstaller == null) {
-                // If repo is null, we can't proceed.
+            val currentSession = session
+            if (currentSession == null) {
                 LaunchedEffect(Unit) {
                     finish()
                 }
                 return@setContent
             }
 
-            InstallerTheme(
-                isExpressive = uiState.isExpressive,
-                useMiuix = uiState.useMiuix,
-                themeMode = uiState.themeMode,
-                paletteStyle = uiState.paletteStyle,
-                colorSpec = uiState.colorSpec,
-                useDynamicColor = uiState.useDynamicColor,
-                useMiuixMonet = uiState.useMiuixMonet,
-                seedColor = uiState.seedColor
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (uiState.useMiuix) {
-                        MiuixInstallerPage(installer = currentInstaller)
-                    } else {
-                        InstallerPage(installer = currentInstaller)
-                    }
-                }
-            }
+            InstallerActivityContent(session = currentSession, themeStateProvider = themeStateProvider)
         }
     }
 }

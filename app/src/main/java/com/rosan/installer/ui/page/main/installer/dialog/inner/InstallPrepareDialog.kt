@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2023-2026 iamr0s, InstallerX Revived contributors
 package com.rosan.installer.ui.page.main.installer.dialog.inner
 
-import android.annotation.SuppressLint
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -8,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,105 +18,115 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
 import com.rosan.installer.core.env.DeviceConfig
-import com.rosan.installer.domain.device.model.Manufacturer
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataType
-import com.rosan.installer.domain.engine.model.sortedBest
-import com.rosan.installer.domain.session.repository.InstallerSessionRepository
+import com.rosan.installer.core.device.model.Manufacturer
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataType
+import com.rosan.installer.domain.engine.model.packageinfo.sortedBest
+import com.rosan.installer.domain.engine.usecase.AnalyzeInstallStateUseCase
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
+import com.rosan.installer.ui.page.main.installer.components.WarningTextBlock
+import com.rosan.installer.ui.page.main.installer.components.failedIcon
+import com.rosan.installer.ui.page.main.installer.dialog.DialogButton
 import com.rosan.installer.ui.page.main.installer.dialog.DialogInnerParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParams
 import com.rosan.installer.ui.page.main.installer.dialog.DialogParamsType
+import com.rosan.installer.ui.page.main.installer.dialog.dialogButtons
+import com.rosan.installer.ui.page.main.installer.mapper.InstallNoticeResources
+import com.rosan.installer.ui.page.main.installer.mapper.InstallStateUiMapper
 import com.rosan.installer.ui.page.main.widget.chip.Chip
-import com.rosan.installer.ui.page.main.widget.chip.WarningChipGroup
-import com.rosan.installer.ui.util.InstallLogicUtils
-
-// Assume pausingIcon is accessible
+import com.rosan.installer.ui.page.main.widget.chip.InstallInfoChipGroup
+import org.koin.compose.koinInject
 
 @Composable
 private fun installPrepareEmptyDialog(
     viewModel: InstallerViewModel
-): DialogParams {
-    return DialogParams(
-        icon = DialogInnerParams(
-            DialogParamsType.IconPausing.id, pausingIcon
-        ), title = DialogInnerParams(
-            DialogParamsType.InstallerPrepare.id,
-        ) {
-            Text(stringResource(R.string.installer_prepare_install))
-        }, text = DialogInnerParams(
-            DialogParamsType.InstallerPrepareEmpty.id
-        ) {
-            Text(stringResource(R.string.installer_prepare_install_empty))
-        }, buttons = dialogButtons(
-            DialogParamsType.ButtonsCancel.id
-        ) {
-            listOf(DialogButton(stringResource(R.string.previous)) {
+) = DialogParams(
+    icon = DialogInnerParams(
+        DialogParamsType.IconError.id, failedIcon
+    ),
+    title = DialogInnerParams(
+        DialogParamsType.InstallerPrepare.id,
+    ) {
+        Text(stringResource(R.string.installer_prepare_install))
+    },
+    text = DialogInnerParams(
+        DialogParamsType.InstallerPrepareEmpty.id
+    ) {
+        Text(stringResource(R.string.installer_prepare_install_empty))
+    },
+    buttons = dialogButtons(
+        DialogParamsType.ButtonsCancel.id
+    ) {
+        listOf(
+            DialogButton(stringResource(R.string.previous)) {
                 viewModel.dispatch(InstallerViewAction.InstallChoice)
-            }, DialogButton(stringResource(R.string.cancel)) {
+            },
+            DialogButton(stringResource(R.string.cancel)) {
                 viewModel.dispatch(InstallerViewAction.Close)
-            })
-        })
-}
+            }
+        )
+    }
+)
 
 @Composable
 private fun installPrepareTooManyDialog(
-    installer: InstallerSessionRepository, viewModel: InstallerViewModel
-): DialogParams {
-    return DialogParams(
-        icon = DialogInnerParams(
-            DialogParamsType.IconPausing.id, pausingIcon
-        ), title = DialogInnerParams(
-            DialogParamsType.InstallerPrepare.id,
-        ) {
-            Text(stringResource(R.string.installer_prepare_install))
-        }, text = DialogInnerParams(
-            DialogParamsType.InstallerPrepareTooMany.id
-        ) {
-            Text(stringResource(R.string.installer_prepare_install_too_many))
-        }, buttons = dialogButtons(
-            DialogParamsType.ButtonsCancel.id
-        ) {
-            listOf(DialogButton(stringResource(R.string.previous)) {
+    viewModel: InstallerViewModel
+) = DialogParams(
+    icon = DialogInnerParams(
+        DialogParamsType.IconError.id, failedIcon
+    ),
+    title = DialogInnerParams(
+        DialogParamsType.InstallerPrepare.id,
+    ) {
+        Text(stringResource(R.string.installer_prepare_install))
+    },
+    text = DialogInnerParams(
+        DialogParamsType.InstallerPrepareTooMany.id
+    ) {
+        Text(stringResource(R.string.installer_prepare_install_too_many))
+    },
+    buttons = dialogButtons(
+        DialogParamsType.ButtonsCancel.id
+    ) {
+        listOf(
+            DialogButton(stringResource(R.string.previous)) {
                 viewModel.dispatch(InstallerViewAction.InstallChoice)
-            }, DialogButton(stringResource(R.string.cancel)) {
+            },
+            DialogButton(stringResource(R.string.cancel)) {
                 viewModel.dispatch(InstallerViewAction.Close)
-            })
-        })
-}
+            }
+        )
+    }
+)
 
-
-@SuppressLint("UnrememberedMutableState")
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun installPrepareDialog(
-    installer: InstallerSessionRepository, viewModel: InstallerViewModel
+    viewModel: InstallerViewModel
 ): DialogParams {
-    LocalContext.current
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
-    val currentPackage = installer.analysisResults.find { it.packageName == currentPackageName }
-    val settings = viewModel.viewSettings
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val config = uiState.config
+    val currentPackageName = uiState.currentPackageName
+    val currentPackage = uiState.analysisResults.find { it.packageName == currentPackageName }
+    val settings = uiState.viewSettings
 
     // If there is no specific package to prepare, show an empty/error dialog.
     if (currentPackage == null) {
-        return if (installer.analysisResults.size > 1) {
-            installPrepareTooManyDialog(installer, viewModel)
+        return if (uiState.analysisResults.size > 1) {
+            installPrepareTooManyDialog(viewModel)
         } else {
             installPrepareEmptyDialog(viewModel)
         }
@@ -146,21 +156,8 @@ fun installPrepareDialog(
     val isSplitUpdateMode = (isBundleSplitUpdate || isPureSplit) && preInstallAppInfo != null
 
     var showChips by remember { mutableStateOf(false) }
-    var autoDelete by remember { mutableStateOf(installer.config.autoDelete) }
-    var displaySdk by remember { mutableStateOf(installer.config.displaySdk) }
-    var displaySize by remember { mutableStateOf(installer.config.displaySize) }
-    var showOPPOSpecial by remember { mutableStateOf(settings.showOPPOSpecial) }
-
-    LaunchedEffect(autoDelete, displaySdk, displaySize) {
-        val currentConfig = installer.config
-        if (currentConfig.autoDelete != autoDelete) installer.config = installer.config.copy(autoDelete = autoDelete)
-        if (currentConfig.displaySdk != displaySdk) installer.config = installer.config.copy(displaySdk = displaySdk)
-        if (currentConfig.displaySize != displaySize) installer.config = installer.config.copy(displaySize = displaySize)
-    }
-
     // Call InstallInfoDialog for base structure
     val baseParams = installInfoDialog(
-        installer = installer,
         viewModel = viewModel,
         onTitleExtraClick = { showChips = !showChips }
     )
@@ -172,8 +169,40 @@ fun installPrepareDialog(
     val tagDowngrade = stringResource(R.string.tag_downgrade)
     val downgradeWarning = stringResource(R.string.installer_prepare_type_downgrade)
     val tagSignature = stringResource(R.string.tag_signature)
+    val tagSignatureMatch = stringResource(R.string.tag_signature_match)
+    val tagSignatureRotation = stringResource(R.string.tag_signature_rotation)
+    val tagSignatureRotationUnconfirmed = stringResource(R.string.tag_signature_rotation_unconfirmed)
+    val sigNewInstall = stringResource(R.string.installer_prepare_signature_new_install)
+    val sigMatch = stringResource(R.string.installer_prepare_signature_match)
+    val sigRotationCompatible = stringResource(R.string.installer_prepare_signature_rotation_compatible)
+    val sigCandidateRotationUnconfirmed =
+        stringResource(R.string.installer_prepare_signature_candidate_rotation_unconfirmed)
     val sigMismatchWarning = stringResource(R.string.installer_prepare_signature_mismatch)
     val sigUnknownWarning = stringResource(R.string.installer_prepare_signature_unknown)
+    val sigAnalysisIssue = stringResource(R.string.installer_prepare_signature_analysis_issue)
+    val labelPendingSignature = stringResource(R.string.installer_signature_pending_package)
+    val labelInstalledSignature = stringResource(R.string.installer_signature_installed_package)
+    val labelSignatureAnalysisIssues = stringResource(R.string.installer_signature_analysis_issues)
+    val labelSignatureVerificationFailedFiles = stringResource(R.string.installer_signature_verification_failed_files)
+    val labelSignatureSplitMismatchFiles = stringResource(R.string.installer_signature_split_mismatch_files)
+    val labelSignatureDuplicateSplitNames = stringResource(R.string.installer_signature_duplicate_split_names)
+    val labelSignatureSchemes = stringResource(R.string.installer_signature_schemes)
+    val labelSignatureCertificate = stringResource(R.string.installer_signature_certificate)
+    val labelSignatureCurrentCertificate = stringResource(R.string.installer_signature_current_certificate)
+    val labelSignatureCertificateLineage = stringResource(R.string.installer_signature_certificate_lineage)
+    val labelSignatureLineageCertificate = stringResource(R.string.installer_signature_lineage_certificate)
+    val labelSignatureCurrentMarker = stringResource(R.string.installer_signature_current_marker)
+    val labelSignatureSha256 = stringResource(R.string.installer_signature_sha256)
+    val labelSignatureSha1 = stringResource(R.string.installer_signature_sha1)
+    val labelSignatureSubject = stringResource(R.string.installer_signature_subject)
+    val labelSignatureIssuer = stringResource(R.string.installer_signature_issuer)
+    val labelSignatureValidFrom = stringResource(R.string.installer_signature_valid_from)
+    val labelSignatureValidUntil = stringResource(R.string.installer_signature_valid_until)
+    val labelSignaturePublicKeyAlgorithm = stringResource(R.string.installer_signature_public_key_algorithm)
+    val labelSignatureAlgorithm = stringResource(R.string.installer_signature_algorithm)
+    val labelSignatureWarnings = stringResource(R.string.installer_signature_warnings)
+    val labelSignatureErrors = stringResource(R.string.installer_signature_errors)
+    val labelSignatureNoCertificates = stringResource(R.string.installer_signature_no_certificates)
     val tagSdk = stringResource(R.string.tag_sdk)
     val sdkIncompatibleWarning = stringResource(R.string.installer_prepare_sdk_incompatible)
     val tagArch32 = stringResource(R.string.tag_arch_32)
@@ -182,14 +211,48 @@ fun installPrepareDialog(
     val textArchMismatch = stringResource(R.string.installer_prepare_arch_mismatch_notice)
     val tagIdentical = stringResource(R.string.tag_identical)
     val textIdentical = stringResource(R.string.installer_prepare_identical_notice)
+    val tagXposed = stringResource(R.string.tag_xposed)
+    val labelXposedMinApi = stringResource(R.string.installer_xposed_min_api)
+    val labelXposedTargetApi = stringResource(R.string.installer_xposed_target_api)
 
     val installResources = remember(primaryColor, errorColor, tertiaryColor) {
-        InstallWarningResources(
+        InstallNoticeResources(
             tagDowngrade = tagDowngrade,
             textDowngrade = downgradeWarning,
             tagSignature = tagSignature,
+            tagSignatureMatch = tagSignatureMatch,
+            tagSignatureRotation = tagSignatureRotation,
+            tagSignatureRotationUnconfirmed = tagSignatureRotationUnconfirmed,
+            textSigNewInstall = sigNewInstall,
+            textSigMatch = sigMatch,
+            textSigRotationCompatible = sigRotationCompatible,
+            textSigCandidateRotationUnconfirmed = sigCandidateRotationUnconfirmed,
             textSigMismatch = sigMismatchWarning,
             textSigUnknown = sigUnknownWarning,
+            textSigAnalysisIssue = sigAnalysisIssue,
+            labelPendingSignature = labelPendingSignature,
+            labelInstalledSignature = labelInstalledSignature,
+            labelSignatureAnalysisIssues = labelSignatureAnalysisIssues,
+            labelSignatureVerificationFailedFiles = labelSignatureVerificationFailedFiles,
+            labelSignatureSplitMismatchFiles = labelSignatureSplitMismatchFiles,
+            labelSignatureDuplicateSplitNames = labelSignatureDuplicateSplitNames,
+            labelSignatureSchemes = labelSignatureSchemes,
+            labelSignatureCertificate = labelSignatureCertificate,
+            labelSignatureCurrentCertificate = labelSignatureCurrentCertificate,
+            labelSignatureCertificateLineage = labelSignatureCertificateLineage,
+            labelSignatureLineageCertificate = labelSignatureLineageCertificate,
+            labelSignatureCurrentMarker = labelSignatureCurrentMarker,
+            labelSignatureSha256 = labelSignatureSha256,
+            labelSignatureSha1 = labelSignatureSha1,
+            labelSignatureSubject = labelSignatureSubject,
+            labelSignatureIssuer = labelSignatureIssuer,
+            labelSignatureValidFrom = labelSignatureValidFrom,
+            labelSignatureValidUntil = labelSignatureValidUntil,
+            labelSignaturePublicKeyAlgorithm = labelSignaturePublicKeyAlgorithm,
+            labelSignatureAlgorithm = labelSignatureAlgorithm,
+            labelSignatureWarnings = labelSignatureWarnings,
+            labelSignatureErrors = labelSignatureErrors,
+            labelSignatureNoCertificates = labelSignatureNoCertificates,
             tagSdk = tagSdk,
             textSdkIncompatible = sdkIncompatibleWarning,
             tagArch32 = tagArch32,
@@ -198,20 +261,37 @@ fun installPrepareDialog(
             textArchMismatchFormat = textArchMismatch,
             tagIdentical = tagIdentical,
             textIdentical = textIdentical,
+            tagXposed = tagXposed,
+            labelXposedMinApi = labelXposedMinApi,
+            labelXposedTargetApi = labelXposedTargetApi,
             errorColor = errorColor,
             tertiaryColor = tertiaryColor,
             primaryColor = primaryColor
         )
     }
 
-    val (warningModels, buttonTextId) = remember(
+    // Inject the pure domain use case
+    val analyzeInstallStateUseCase = koinInject<AnalyzeInstallStateUseCase>()
+
+    // Instantiate the UI mapper with the required Compose resources
+    val installStateUiMapper = remember(installResources) {
+        InstallStateUiMapper(installResources)
+    }
+
+    // Execute domain logic and map to UI state within the remember block
+    val installStateResult = remember(
         currentPackage,
         entityToInstall,
         isSplitUpdateMode,
         containerType,
-        installResources
+        settings.checkAppSignature,
+        settings.showSignatureInfoOnMatch,
+        settings.showSignatureDetails,
+        settings.detectXposedModule,
+        installStateUiMapper
     ) {
-        InstallLogicUtils.analyzeInstallState(
+        // 1. Get pure domain state
+        val domainState = analyzeInstallStateUseCase(
             currentPackage = currentPackage,
             entityToInstall = entityToInstall,
             primaryEntity = primaryEntity,
@@ -219,9 +299,17 @@ fun installPrepareDialog(
             containerType = containerType,
             systemArch = DeviceConfig.currentArchitecture,
             systemSdkInt = Build.VERSION.SDK_INT,
-            resources = installResources
+            checkAppSignature = settings.checkAppSignature,
+            showSignatureInfoOnMatch = settings.showSignatureInfoOnMatch,
+            showSignatureDetails = settings.showSignatureDetails,
+            detectXposedModule = settings.detectXposedModule
         )
+
+        // 2. Map to UI state
+        installStateUiMapper.mapToUiState(domainState)
     }
+    val notices = installStateResult.notices
+    val buttonTextId = installStateResult.buttonTextId
 
     return baseParams.copy(
         // Subtitle is inherited from InstallInfoDialog (shows new version + package name)
@@ -230,16 +318,16 @@ fun installPrepareDialog(
         ) {
             LazyColumn(horizontalAlignment = Alignment.CenterHorizontally) {
                 item {
-                    WarningChipGroup(
+                    InstallInfoChipGroup(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        warnings = warningModels
+                        notices = notices
                     )
                 }
                 item {
                     AnimatedVisibility(
                         visible = (primaryEntity is AppEntity.ModuleEntity) &&
                                 primaryEntity.description.isNotBlank() &&
-                                displaySdk,
+                                config.displaySdk,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically()
                     ) {
@@ -270,42 +358,38 @@ fun installPrepareDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Chip(
-                                selected = autoDelete,
+                                selected = config.autoDelete, // Read directly from config
                                 onClick = {
-                                    val newValue = !autoDelete
-                                    autoDelete = newValue
-                                    installer.config = installer.config.copy(autoDelete = newValue)
+                                    // Update via ViewModel
+                                    viewModel.updateConfig { it.copy(autoDelete = !it.autoDelete) }
                                 },
                                 label = stringResource(id = R.string.config_auto_delete),
                                 icon = AppIcons.Delete
                             )
                             Chip(
-                                selected = displaySdk,
+                                selected = config.displaySdk, // Read directly from config
                                 onClick = {
-                                    val newValue = !displaySdk
-                                    displaySdk = newValue
-                                    installer.config = installer.config.copy(displaySdk = newValue)
+                                    // Update via ViewModel
+                                    viewModel.updateConfig { it.copy(displaySdk = !it.displaySdk) }
                                 },
                                 label = stringResource(id = R.string.config_display_sdk_version),
                                 icon = AppIcons.Info
                             )
                             Chip(
-                                selected = displaySize,
+                                selected = config.displaySize, // Read directly from config
                                 onClick = {
-                                    val newValue = !displaySize
-                                    displaySize = newValue
-                                    installer.config = installer.config.copy(displaySize = newValue)
+                                    // Update via ViewModel
+                                    viewModel.updateConfig { it.copy(displaySize = !it.displaySize) }
                                 },
                                 label = stringResource(id = R.string.config_display_size),
                                 icon = AppIcons.ShowSize
                             )
                             if (DeviceConfig.currentManufacturer == Manufacturer.OPPO || DeviceConfig.currentManufacturer == Manufacturer.ONEPLUS)
                                 Chip(
-                                    selected = showOPPOSpecial,
+                                    selected = settings.showOPPOSpecial, // From viewSettings
                                     onClick = {
-                                        val newValue = !showOPPOSpecial
-                                        showOPPOSpecial = newValue
-                                        settings.copy(showOPPOSpecial = newValue)
+                                        val newValue = !settings.showOPPOSpecial
+                                        viewModel.dispatch(InstallerViewAction.SetTempShowOPPOSpecial(newValue))
                                     },
                                     label = stringResource(id = R.string.installer_show_oem_special),
                                     icon = AppIcons.OEMSpecial
@@ -313,9 +397,11 @@ fun installPrepareDialog(
                         }
                     }
                 }
+
                 val isInvalidSplitInstall = currentPackage.installedAppInfo == null &&
                         entityToInstall == null &&
                         selectedEntities.any { it is AppEntity.SplitEntity }
+
                 if (isInvalidSplitInstall)
                     item {
                         WarningTextBlock(listOf(Pair(stringResource(R.string.installer_splits_invalid_tip), MaterialTheme.colorScheme.error)))
@@ -349,6 +435,7 @@ fun installPrepareDialog(
                 } ?: false
 
                 val canInstall = canInstallBaseEntity || canInstallModuleEntity || canInstallSplitEntity
+
                 // only when the entity is a split APK, XAPK, or APKM
                 if (canInstall && settings.showExtendedMenu && isAPK) {
                     add(DialogButton(stringResource(R.string.install_choice), 1f) {
@@ -356,11 +443,26 @@ fun installPrepareDialog(
                     })
                 }
                 if (canInstall) {
-                    add(DialogButton(stringResource(buttonTextId), 1f) {
-                        viewModel.dispatch(InstallerViewAction.Install(true))
-                        if (settings.autoSilentInstall && !viewModel.isInstallingModule)
-                            viewModel.dispatch(InstallerViewAction.Background)
-                    })
+                    add(
+                        DialogButton(
+                            text = stringResource(buttonTextId),
+                            weight = 1f,
+                            onLongClick = {
+                                if (!settings.longClickBackgroundInstall) return@DialogButton
+                                // Trigger install directly
+                                viewModel.dispatch(InstallerViewAction.Install(true))
+                                // Force background auto silent install regardless of settings
+                                if (!viewModel.isInstallingModule) {
+                                    viewModel.dispatch(InstallerViewAction.Background)
+                                }
+                            },
+                            onClick = {
+                                viewModel.dispatch(InstallerViewAction.Install(true))
+                                if (settings.autoSilentInstall && !viewModel.isInstallingModule)
+                                    viewModel.dispatch(InstallerViewAction.Background)
+                            }
+                        )
+                    )
                 }
                 // else if app can be installed and extended menu is shown
                 if (canInstall && settings.showExtendedMenu && primaryEntity !is AppEntity.ModuleEntity) {

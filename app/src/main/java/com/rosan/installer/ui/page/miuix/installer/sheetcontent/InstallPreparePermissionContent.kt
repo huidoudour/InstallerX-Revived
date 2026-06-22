@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.activity.compose.BackHandler
@@ -10,43 +12,36 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.sortedBest
-import com.rosan.installer.domain.session.repository.InstallerSessionRepository
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.packageinfo.sortedBest
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.theme.InstallerTheme
-import com.rosan.installer.ui.theme.miuixSheetCardColorDark
+import com.rosan.installer.ui.theme.miuixSheetCardColors
 import com.rosan.installer.ui.util.isGestureNavigation
 import com.rosan.installer.util.pm.getBestPermissionLabel
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardColors
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 
 @Composable
 fun InstallPreparePermissionContent(
-    installer: InstallerSessionRepository,
     viewModel: InstallerViewModel,
     onBack: () -> Unit
 ) {
-    val isDarkMode = InstallerTheme.isDark
-    val currentPackageName by viewModel.currentPackageName.collectAsState()
-    val currentPackage = installer.analysisResults.find { it.packageName == currentPackageName }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentPackageName = uiState.currentPackageName
+    val currentPackage = uiState.analysisResults.find { it.packageName == currentPackageName }
 
     val entity = currentPackage?.appEntities
         ?.filter { it.selected }
@@ -71,11 +66,7 @@ fun InstallPreparePermissionContent(
                 .fillMaxWidth()
                 .weight(1f, fill = false)
                 .padding(vertical = 6.dp),
-            colors = CardColors(
-                color = if (isDynamicColor) MiuixTheme.colorScheme.surfaceContainer else
-                    if (isDarkMode) miuixSheetCardColorDark else Color.White,
-                contentColor = MiuixTheme.colorScheme.onSurface
-            )
+            colors = miuixSheetCardColors()
         ) {
             LazyColumn {
                 items(permissionList) { permission ->

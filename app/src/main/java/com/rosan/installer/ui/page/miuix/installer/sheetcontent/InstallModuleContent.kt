@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.compose.foundation.layout.Arrangement
@@ -25,13 +27,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rosan.installer.R
-import com.rosan.installer.ui.theme.InstallerTheme
+import com.rosan.installer.ui.theme.miuixSheetCardColors
 import com.rosan.installer.ui.util.KeyEventBlocker
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardColors
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -43,8 +44,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
  * It features a scrollable log area that automatically follows new output,
  * and a close button.
  *
- * @param colorScheme The color scheme for the UI.
- * @param isDarkMode Whether the UI is in dark mode.
  * @param outputLines The list of log lines to display.
  * @param isFinished Whether the installation process has completed.
  * @param onClose Lambda to be invoked when the close button is clicked.
@@ -72,10 +71,6 @@ fun InstallModuleContent(
         }
     }
 
-    val isDarkMode = InstallerTheme.isDark
-    val cardColor = if (isDynamicColor) MiuixTheme.colorScheme.surfaceContainer else
-        if (isDarkMode) Color.Black else Color.White
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -87,10 +82,7 @@ fun InstallModuleContent(
                 .fillMaxWidth()
                 .heightIn(min = 300.dp)
                 .weight(1f, fill = false),
-            colors = CardColors(
-                color = cardColor,
-                contentColor = MiuixTheme.colorScheme.onSurface
-            )
+            colors = miuixSheetCardColors()
         ) {
             LazyColumn(
                 state = lazyListState,

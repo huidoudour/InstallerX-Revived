@@ -36,8 +36,9 @@ import androidx.compose.ui.unit.dp
 import com.rosan.installer.R
 import com.rosan.installer.core.env.AppConfig
 import com.rosan.installer.core.env.DeviceConfig
-import com.rosan.installer.domain.device.model.Manufacturer
-import com.rosan.installer.domain.settings.model.RootImplementation
+import com.rosan.installer.core.device.model.Manufacturer
+import com.rosan.installer.domain.settings.model.preferences.GithubUpdateChannel
+import com.rosan.installer.domain.settings.model.preferences.RootMode
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.util.help
 
@@ -240,17 +241,17 @@ fun HideLauncherIconWarningDialog(
  */
 @Composable
 fun RootImplementationSelectionDialog(
-    currentSelection: RootImplementation,
+    currentSelection: RootMode,
     onDismiss: () -> Unit,
-    onConfirm: (RootImplementation) -> Unit
+    onConfirm: (RootMode) -> Unit
 ) {
     // Temporary state for the dialog selection
     val (selectedOption, onOptionSelected) = remember { mutableStateOf(currentSelection) }
 
     val options = mapOf(
-        RootImplementation.Magisk to "Magisk",
-        RootImplementation.KernelSU to "KernelSU",
-        RootImplementation.APatch to "APatch"
+        RootMode.Magisk to "Magisk",
+        RootMode.KernelSU to "KernelSU",
+        RootMode.APatch to "APatch"
     )
 
     AlertDialog(
@@ -339,32 +340,98 @@ fun UninstallPackageDialog(
     )
 }
 
-/**
- * A dialog to warn the user about unstable blur effects on Android 11 and below.
- */
 @Composable
-fun BlurWarningDialog(
-    show: Boolean,
+fun GithubUpdateChannelSelectionDialog(
+    currentSelection: GithubUpdateChannel,
     onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
+    onConfirm: (GithubUpdateChannel) -> Unit
 ) {
-    if (show) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(text = stringResource(R.string.warning)) },
-            text = {
-                Text(text = stringResource(R.string.theme_settings_use_blur_warning))
-            },
-            confirmButton = {
-                TextButton(onClick = onConfirm) {
-                    Text(text = stringResource(R.string.confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(text = stringResource(R.string.cancel))
+    val (selectedOption, onOptionSelected) = remember { mutableStateOf(currentSelection) }
+
+    val options = mapOf(
+        GithubUpdateChannel.OFFICIAL to stringResource(R.string.lab_update_github_proxy_official),
+        GithubUpdateChannel.PROXY_7ED to stringResource(R.string.lab_update_github_proxy_7ed),
+        GithubUpdateChannel.CUSTOM to stringResource(R.string.lab_update_github_proxy_custom)
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.lab_update_github_proxy)) },
+        text = {
+            Column(Modifier.selectableGroup()) {
+                options.forEach { (channel, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .selectable(
+                                selected = (channel == selectedOption),
+                                onClick = { onOptionSelected(channel) },
+                                role = Role.RadioButton
+                            )
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = (channel == selectedOption),
+                            onClick = null
+                        )
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                    }
                 }
             }
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(selectedOption) }
+            ) {
+                Text(stringResource(R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+fun CustomGithubProxyUrlDialog(
+    initialUrl: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var url by remember { mutableStateOf(initialUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.lab_update_github_proxy_custom)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text(stringResource(R.string.lab_update_github_proxy_url)) },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(url) }
+            ) {
+                Text(stringResource(R.string.confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
 }

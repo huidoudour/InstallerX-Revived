@@ -9,10 +9,10 @@ import com.rosan.installer.data.engine.parser.strategy.MultiApkZipStrategy
 import com.rosan.installer.data.engine.parser.strategy.SingleApkStrategy
 import com.rosan.installer.data.engine.parser.strategy.XApkStrategy
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.engine.model.DataType
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.engine.model.source.DataType
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.zip.ZipFile
@@ -21,17 +21,24 @@ import java.util.zip.ZipFile
  * A unified entry point for analyzing any package format.
  * It manages the lifecycle of the ZipFile (if applicable) to ensure it's opened only once.
  */
-object UnifiedContainerAnalyser {
+class UnifiedContainerAnalyser(
+    singleApkStrategy: SingleApkStrategy,
+    apksStrategy: ApksStrategy,
+    apkmStrategy: ApkmStrategy,
+    xapkStrategy: XApkStrategy,
+    multiApkZipStrategy: MultiApkZipStrategy,
+    moduleStrategy: ModuleStrategy
+) {
 
     private val strategies = mapOf(
-        DataType.APK to SingleApkStrategy,
-        DataType.APKS to ApksStrategy,
-        DataType.APKM to ApkmStrategy,
-        DataType.XAPK to XApkStrategy,
-        DataType.MULTI_APK_ZIP to MultiApkZipStrategy,
-        DataType.MODULE_ZIP to ModuleStrategy,
-        DataType.MIXED_MODULE_ZIP to ModuleStrategy,
-        DataType.MIXED_MODULE_APK to ModuleStrategy
+        DataType.APK to singleApkStrategy,
+        DataType.APKS to apksStrategy,
+        DataType.APKM to apkmStrategy,
+        DataType.XAPK to xapkStrategy,
+        DataType.MULTI_APK_ZIP to multiApkZipStrategy,
+        DataType.MODULE_ZIP to moduleStrategy,
+        DataType.MIXED_MODULE_ZIP to moduleStrategy,
+        DataType.MIXED_MODULE_APK to moduleStrategy
     )
 
     suspend fun analyze(

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.ui.page.miuix.installer.sheetcontent
 
 import androidx.compose.foundation.Image
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,9 +24,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
+import com.rosan.installer.domain.session.model.ConfirmationRequestType
+import com.rosan.installer.ui.page.main.installer.InstallerStage
 import com.rosan.installer.ui.page.main.installer.InstallerViewModel
-import com.rosan.installer.ui.page.main.installer.InstallerViewState
 import com.rosan.installer.ui.page.miuix.widgets.MiuixInstallerTipCard
 import com.rosan.installer.ui.util.isGestureNavigation
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -38,7 +43,9 @@ fun InstallConfirmContent(
     onCancel: () -> Unit,
     onConfirm: () -> Unit
 ) {
-    val state = viewModel.state as InstallerViewState.InstallConfirm
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sessionInfo = uiState.stage as? InstallerStage.InstallConfirm ?: return
+
     LazyColumn(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
@@ -49,9 +56,9 @@ fun InstallConfirmContent(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
             ) {
-                if (state.appIcon != null) {
+                if (sessionInfo.appIcon != null) {
                     Image(
-                        bitmap = state.appIcon.asImageBitmap(),
+                        bitmap = sessionInfo.appIcon.asImageBitmap(),
                         contentDescription = null,
                         modifier = Modifier
                             .size(86.dp)
@@ -65,8 +72,9 @@ fun InstallConfirmContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = state.appLabel.toString(),
+                    text = sessionInfo.appLabel.toString(),
                     style = MiuixTheme.textStyles.title3,
+                    color = MiuixTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp)
@@ -74,7 +82,33 @@ fun InstallConfirmContent(
             }
         }
 
-        item { MiuixInstallerTipCard(stringResource(R.string.installer_prepare_type_unknown_confirm)) }
+        item {
+            val tipMessage = when {
+                sessionInfo.requestType == ConfirmationRequestType.PRE_APPROVAL -> {
+                    val initiator = sessionInfo.sourceAppLabel ?: stringResource(R.string.installer_label_unknown)
+                    stringResource(R.string.install_confirm_pre_approval_tip, initiator)
+                }
+
+                sessionInfo.requestType == ConfirmationRequestType.PERMISSIONS -> {
+                    val initiator = sessionInfo.sourceAppLabel ?: stringResource(R.string.installer_label_unknown)
+                    stringResource(R.string.install_confirm_permissions_tip, initiator)
+                }
+
+                sessionInfo.isOwnershipConflict -> {
+                    val owner = sessionInfo.sourceAppLabel ?: stringResource(R.string.installer_label_unknown)
+                    stringResource(R.string.install_confirm_question_update_owner_reminder, owner)
+                }
+
+                !sessionInfo.isSelfSession -> {
+                    val initiator = sessionInfo.sourceAppLabel ?: stringResource(R.string.installer_label_unknown)
+                    stringResource(R.string.install_confirm_external_request_tip, initiator)
+                }
+
+                else -> stringResource(R.string.installer_prepare_type_unknown_confirm)
+            }
+
+            MiuixInstallerTipCard(tipMessage)
+        }
 
         item {
             Row(
@@ -95,9 +129,17 @@ fun InstallConfirmContent(
                     modifier = Modifier.weight(1f),
                 )
 
+                val confirmText = if (sessionInfo.isOwnershipConflict) {
+                    stringResource(R.string.install_anyway)
+                } else if (sessionInfo.requestType == ConfirmationRequestType.PRE_APPROVAL) {
+                    stringResource(R.string.pre_approve)
+                } else {
+                    stringResource(R.string.confirm)
+                }
+
                 TextButton(
                     onClick = onConfirm,
-                    text = stringResource(R.string.confirm),
+                    text = confirmText,
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                     modifier = Modifier.weight(1f)
                 )

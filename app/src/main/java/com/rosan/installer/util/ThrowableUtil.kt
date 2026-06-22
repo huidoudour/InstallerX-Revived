@@ -8,9 +8,15 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.rosan.installer.R
+import com.rosan.installer.core.exception.InstallerException
+import com.rosan.installer.domain.engine.exception.AnalyseException
 import com.rosan.installer.domain.engine.exception.InstallException
-import com.rosan.installer.domain.engine.exception.InstallerException
-import com.rosan.installer.domain.engine.model.InstallErrorType
+import com.rosan.installer.domain.engine.exception.ModuleInstallException
+import com.rosan.installer.domain.engine.model.error.AnalyseErrorType
+import com.rosan.installer.domain.engine.model.error.InstallErrorType
+import com.rosan.installer.domain.engine.model.error.ModuleInstallErrorType
+import com.rosan.installer.domain.privileged.exception.PrivilegedException
+import com.rosan.installer.domain.privileged.model.PrivilegedErrorType
 import java.util.zip.ZipException
 
 /**
@@ -69,3 +75,33 @@ fun Throwable.getErrorMessage(context: Context) = context.getString(this.getStri
  */
 fun Throwable.hasErrorType(vararg types: InstallErrorType): Boolean =
     this is InstallException && this.errorType in types
+
+/**
+ * Returns a [Boolean] indicating whether this [Throwable]
+ * has a specific [ModuleInstallErrorType].
+ *
+ * @param types The [ModuleInstallErrorType] to check for.
+ * @return `true` if the [ModuleInstallErrorType] is found, `false` otherwise.
+ */
+fun Throwable.hasErrorType(vararg types: ModuleInstallErrorType): Boolean =
+    this is ModuleInstallException && this.errorType in types
+
+/**
+ * Returns a [Boolean] indicating whether this [Throwable]
+ * has a specific [AnalyseErrorType].
+ *
+ * @param types The [AnalyseErrorType] to check for.
+ * @return `true` if the [AnalyseErrorType] is found, `false` otherwise.
+ */
+fun Throwable.hasErrorType(vararg types: AnalyseErrorType): Boolean =
+    this is AnalyseException && this.errorType in types
+
+/**
+ * Returns a [Boolean] indicating whether this [Throwable]
+ * has a specific [PrivilegedErrorType].
+ *
+ * @param types The [PrivilegedErrorType] to check for.
+ * @return `true` if the [PrivilegedErrorType] is found, `false` otherwise.
+ */
+fun Throwable.hasErrorType(vararg types: PrivilegedErrorType): Boolean =
+    this is PrivilegedException && this.errorType in types

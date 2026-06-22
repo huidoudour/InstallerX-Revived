@@ -4,9 +4,11 @@ package com.rosan.installer.data.session.resolver
 
 import android.app.Activity
 import android.content.Intent
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.core.app.ActivityContracts
+import com.rosan.installer.domain.engine.model.install.InstallOption
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import com.rosan.installer.domain.settings.usecase.config.GetResolvedConfigUseCase
-import com.rosan.installer.ui.activity.UninstallerActivity
+import com.rosan.installer.core.bitmask.addFlag
 import timber.log.Timber
 
 class ConfigResolver(
@@ -25,7 +27,7 @@ class ConfigResolver(
     suspend fun resolve(activity: Activity): ConfigModel {
         Timber.tag(TAG).d("resolveConfig: Starting.")
         // 0. Special Check: Is this UninstallerActivity?
-        if (activity is UninstallerActivity) {
+        if (activity::class.java.name == ActivityContracts.UNINSTALLER_ACTIVITY) {
             Timber.tag(TAG).d("Activity is UninstallerActivity. Returning default config immediately.")
             return getConfigForPackage(null)
         }
@@ -73,6 +75,8 @@ class ConfigResolver(
         return getConfigForPackage(null)
     }
 
+    suspend fun resolveForPackage(packageName: String?): ConfigModel = getConfigForPackage(packageName)
+
     /**
      * Checks if the authority belongs to a generic system provider.
      * Matches explicit list or any authority starting with "com.android.providers".
@@ -83,7 +87,21 @@ class ConfigResolver(
     }
 
     private suspend fun getConfigForPackage(packageName: String?): ConfigModel {
-        val config = getResolvedConfigUseCase(packageName)
+        var config = getResolvedConfigUseCase(packageName)
+
+        val initialInstallFlags = listOfNotNull(
+            config.allowTestOnly.takeIf { it }?.let { InstallOption.AllowTest.value },
+            config.allowDowngrade.takeIf { it }?.let { InstallOption.AllowDowngrade.value },
+            config.forAllUser.takeIf { it }?.let { InstallOption.AllUsers.value },
+            config.bypassLowTargetSdk.takeIf { it }?.let { InstallOption.BypassLowTargetSdkBlock.value },
+            config.allowAllRequestedPermissions.takeIf { it }?.let { InstallOption.GrantAllRequestedPermissions.value },
+            config.requestUpdateOwnership.takeIf { it }?.let { InstallOption.RequestUpdateOwnerShip.value },
+        ).fold(0) { acc, flag -> acc or flag }
+
+        config = config.copy(
+            installFlags = config.installFlags.addFlag(initialInstallFlags)
+        )
+
         Timber.tag(TAG).d("Resolved config for '${packageName ?: "default"}': $config")
         return config
     }

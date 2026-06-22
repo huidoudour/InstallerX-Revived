@@ -8,40 +8,69 @@ import com.rosan.installer.ui.page.main.settings.SettingsSharedViewModel
 import com.rosan.installer.ui.page.main.settings.config.all.AllViewModel
 import com.rosan.installer.ui.page.main.settings.config.apply.ApplyViewModel
 import com.rosan.installer.ui.page.main.settings.config.edit.EditViewModel
+import com.rosan.installer.ui.page.main.settings.home.HomePageViewModel
+import com.rosan.installer.ui.page.main.settings.history.HistoryViewModel
 import com.rosan.installer.ui.page.main.settings.preferred.PreferredViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.about.AboutViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.installer.InstallerSettingsViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.lab.LabSettingsViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.theme.ThemeSettingsViewModel
-import com.rosan.installer.ui.page.main.settings.preferred.subpage.uninstaller.UninstallerSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.about.AboutViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.installer.InstallerSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.installer.authorizer.AuthorizerCustViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.installer.dialog.DialogSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.installer.notification.NotificationSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.lab.LabSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.theme.ThemeSettingsViewModel
+import com.rosan.installer.ui.page.main.settings.preferred.uninstaller.UninstallerSettingsViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val viewModelModule = module {
     viewModelOf(::SettingsSharedViewModel)
+    viewModelOf(::HomePageViewModel)
     viewModelOf(::AllViewModel)
+    viewModelOf(::HistoryViewModel)
     viewModelOf(::PreferredViewModel)
     viewModelOf(::ThemeSettingsViewModel)
     viewModelOf(::InstallerSettingsViewModel)
+    viewModelOf(::AuthorizerCustViewModel)
+    viewModelOf(::DialogSettingsViewModel)
+    viewModelOf(::NotificationSettingsViewModel)
     viewModelOf(::UninstallerSettingsViewModel)
     viewModelOf(::LabSettingsViewModel)
     viewModelOf(::AboutViewModel)
 
-    viewModel { (installer: InstallerSessionRepository) ->
+    viewModel { (session: InstallerSessionRepository) ->
         InstallerViewModel(
-            repo = installer,
-            appSettingsRepo = get(),
-            appIconRepo = get(),
-            systemInfoProvider = get()
+            session = session,
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get()
         )
     }
 
     viewModel { (id: Long) ->
-        ApplyViewModel(get(), get(), get(), get(), get(), id)
+        ApplyViewModel(
+            id = id,
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get(),
+            get()
+        )
     }
 
     viewModel { (id: Long?) ->
-        EditViewModel(get(), get(), get(), get(), id)
+        EditViewModel(
+            id = id,
+            get(),
+            get(),
+            get(),
+            get(),
+            get()
+        )
     }
 }

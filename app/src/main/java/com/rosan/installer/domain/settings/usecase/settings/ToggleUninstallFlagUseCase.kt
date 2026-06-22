@@ -1,12 +1,12 @@
 package com.rosan.installer.domain.settings.usecase.settings
 
-import com.rosan.installer.data.engine.executor.PackageManagerUtil
-import com.rosan.installer.domain.settings.repository.AppSettingsRepo
-import com.rosan.installer.util.addFlag
-import com.rosan.installer.util.removeFlag
+import com.rosan.installer.domain.engine.model.install.UninstallFlags
+import com.rosan.installer.domain.settings.repository.AppSettingsRepository
+import com.rosan.installer.core.bitmask.addFlag
+import com.rosan.installer.core.bitmask.removeFlag
 
 class ToggleUninstallFlagUseCase(
-    private val appSettingsRepo: AppSettingsRepo
+    private val appSettingsRepo: AppSettingsRepository
 ) {
     suspend operator fun invoke(flag: Int, enable: Boolean): Int? {
         var disabledMutualExclusionFlag: Int? = null
@@ -17,15 +17,15 @@ class ToggleUninstallFlagUseCase(
             if (enable) {
                 newFlags = newFlags.addFlag(flag)
 
-                if (flag == PackageManagerUtil.DELETE_ALL_USERS) {
-                    if (currentFlags and PackageManagerUtil.DELETE_SYSTEM_APP != 0) {
-                        disabledMutualExclusionFlag = PackageManagerUtil.DELETE_SYSTEM_APP
-                        newFlags = newFlags.removeFlag(PackageManagerUtil.DELETE_SYSTEM_APP)
+                if (flag == UninstallFlags.DELETE_ALL_USERS) {
+                    if (currentFlags and UninstallFlags.DELETE_SYSTEM_APP != 0) {
+                        disabledMutualExclusionFlag = UninstallFlags.DELETE_SYSTEM_APP
+                        newFlags = newFlags.removeFlag(UninstallFlags.DELETE_SYSTEM_APP)
                     }
-                } else if (flag == PackageManagerUtil.DELETE_SYSTEM_APP) {
-                    if (currentFlags and PackageManagerUtil.DELETE_ALL_USERS != 0) {
-                        disabledMutualExclusionFlag = PackageManagerUtil.DELETE_ALL_USERS
-                        newFlags = newFlags.removeFlag(PackageManagerUtil.DELETE_ALL_USERS)
+                } else if (flag == UninstallFlags.DELETE_SYSTEM_APP) {
+                    if (currentFlags and UninstallFlags.DELETE_ALL_USERS != 0) {
+                        disabledMutualExclusionFlag = UninstallFlags.DELETE_ALL_USERS
+                        newFlags = newFlags.removeFlag(UninstallFlags.DELETE_ALL_USERS)
                     }
                 }
             } else {

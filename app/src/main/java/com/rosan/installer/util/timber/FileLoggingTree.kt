@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2025-2026 InstallerX Revived contributors
 package com.rosan.installer.util.timber
 
 import android.content.Context
@@ -20,6 +22,7 @@ import java.util.Locale
  * A Timber Tree that logs to files asynchronously.
  * Uses a buffered Channel to prevent blocking the UI thread and OOM issues.
  */
+@Suppress("LogNotTimber")
 class FileLoggingTree(
     private val context: Context
 ) : Timber.DebugTree() {
@@ -57,6 +60,13 @@ class FileLoggingTree(
                 writeToFile(logContent)
             }
         }
+    }
+
+    // Override to ensure the tag formatting matches the logic in App.kt
+    override fun createStackElementTag(element: StackTraceElement): String? {
+        return super.createStackElementTag(element)
+            ?.substringBefore('$')
+            ?.take(23)
     }
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {

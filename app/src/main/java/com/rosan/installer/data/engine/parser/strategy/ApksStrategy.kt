@@ -4,17 +4,21 @@ package com.rosan.installer.data.engine.parser.strategy
 
 import com.rosan.installer.data.engine.parser.ApkParser
 import com.rosan.installer.data.engine.parser.parseSplitMetadata
+import com.rosan.installer.data.engine.signature.PendingApkSignatureAnalyzer
 import com.rosan.installer.domain.engine.model.AnalyseExtraEntity
-import com.rosan.installer.domain.engine.model.AppEntity
-import com.rosan.installer.domain.engine.model.DataEntity
-import com.rosan.installer.domain.settings.model.ConfigModel
+import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
+import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.settings.model.config.ConfigModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import timber.log.Timber
 import java.io.File
 import java.util.zip.ZipFile
 
-object ApksStrategy : AnalysisStrategy {
+class ApksStrategy(
+    private val apkParser: ApkParser,
+    private val pendingApkSignatureAnalyzer: PendingApkSignatureAnalyzer
+) : AnalysisStrategy {
     override suspend fun analyze(
         config: ConfigModel,
         data: DataEntity,
@@ -47,7 +51,7 @@ object ApksStrategy : AnalysisStrategy {
         // 2. Parse Base APK (Heavy operation - needs Icon/Label)
         val baseDeferred = async {
             Timber.d("ApksStrategy: Parsing base entry full details...")
-            ApkParser.parseZipEntryFull(config, zipFile, baseEntry, data, extra)
+            apkParser.parseZipEntryFull(zipFile, baseEntry, data, extra)
         }
 
         // 3. Process Splits (Lightweight operation)
@@ -92,10 +96,11 @@ object ApksStrategy : AnalysisStrategy {
 
         val splits = splitEntities.map { (entry, name) ->
             val metadata = name.parseSplitMetadata()
+            val entryData = DataEntity.ZipFileEntity(entry.name, data as DataEntity.FileEntity)
 
             AppEntity.SplitEntity(
                 packageName = finalBase.packageName,
-                data = DataEntity.ZipFileEntity(entry.name, data as DataEntity.FileEntity),
+                data = entryData,
                 splitName = name,
                 targetSdk = finalBase.targetSdk,
                 minSdk = finalBase.minSdk,
@@ -103,7 +108,12 @@ object ApksStrategy : AnalysisStrategy {
                 sourceType = extra.dataType,
                 type = metadata.type,
                 filterType = metadata.filterType,
-                configValue = metadata.configValue
+                configValue = metadata.configValue,
+                signatureInfo = if (extra.checkAppSignature) {
+                    pendingApkSignatureAnalyzer.analyze(entryData, extra.cacheDirectory)
+                } else {
+                    null
+                }
             )
         }
 

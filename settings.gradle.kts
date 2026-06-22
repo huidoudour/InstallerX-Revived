@@ -1,6 +1,6 @@
 pluginManagement {
+    includeBuild("build-plugins")
     repositories {
-        mavenLocal()
         // maven { setUrl("https://maven.aliyun.com/repository/public/") }
         // maven { setUrl("https://repo.huaweicloud.com/repository/maven/") }
         gradlePluginPortal()
@@ -8,6 +8,7 @@ pluginManagement {
         mavenCentral()
         maven { setUrl("https://jitpack.io") }
         // maven { setUrl("https://maven.scijava.org/content/repositories/public/") }
+        mavenLocal()
     }
 }
 plugins {
@@ -17,7 +18,6 @@ plugins {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenLocal()
         // maven { setUrl("https://maven.aliyun.com/repository/public/") }
         // maven { setUrl("https://repo.huaweicloud.com/repository/maven/") }
         google()
@@ -33,29 +33,39 @@ dependencyResolutionManagement {
         //
         // Required environment variables (recommended):
         //   - GITHUB_ACTOR : your GitHub username
-        //   - GITHUB_TOKEN : a Personal Access Token (classic) with `read:packages` scope
+        //   - GITHUB_TOKEN : GitHub Actions token, or a PAT classic with `read:packages`
         //
         // Alternative:
         //   - Define `gpr.user` and `gpr.key` in ~/.gradle/gradle.properties (NOT in this repo)
         //
         // This configuration is intentionally placed in settings.gradle.kts
         // to work with RepositoriesMode.FAIL_ON_PROJECT_REPOS.
+        val gprUser = providers.gradleProperty("gpr.user")
+            .orElse(providers.environmentVariable("GITHUB_ACTOR"))
+
+        val gprKey = providers.gradleProperty("gpr.key")
+            .orElse(providers.environmentVariable("GITHUB_TOKEN"))
+
         maven {
+            name = "GitHubPackagesMiuix"
             url = uri("https://maven.pkg.github.com/compose-miuix-ui/miuix")
-            credentials {
-                username = providers.gradleProperty("gpr.user")
-                    .orElse(System.getenv("GITHUB_ACTOR"))
-                    .get()
-                password = providers.gradleProperty("gpr.key")
-                    .orElse(System.getenv("GITHUB_TOKEN"))
-                    .get()
+
+            if (gprUser.isPresent && gprKey.isPresent) {
+                credentials {
+                    username = gprUser.get()
+                    password = gprKey.get()
+                }
             }
         }
+
+        mavenLocal()
     }
 }
 
 rootProject.name = "InstallerX-Revived"
 include(
     ":app",
+    ":app-process",
     ":hidden-api"
 )
+include(":baselineprofile")
